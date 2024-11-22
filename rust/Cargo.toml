@@ -1,0 +1,36 @@
+[package]
+name = "peptide-transformer"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+description = "A Rust implementation of a peptide transformer model using ONNX Runtime"
+license = "Apache-2.0"
+
+[dependencies]
+# Core dependencies for ONNX Runtime integration
+ort = { version = "=2.0.0-rc.8", features = ["ndarray"] }
+ndarray = "0.16.1"
+
+# Error handling and utilities
+anyhow = "1.0.75"
+thiserror = "2.0.3"  # For custom error types if needed
+
+tracing-subscriber = { version = "0.3", features = [ "env-filter", "fmt" ] }
+
+
+# Serialization (optional, if you need to handle JSON/YAML configs)
+serde = { version = "1.0.189", features = ["derive"] }
+serde_json = "1.0.107"
+
+[profile.release]
+# Optimization settings for release builds
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"     # Remove panic unwinding code in release builds
+strip = true       # Strip symbols from binary
+
+[profile.dev]
+# Development profile settings
+opt-level = 0      # Faster compilation, slower runtime
+debug = true       # Full debug info

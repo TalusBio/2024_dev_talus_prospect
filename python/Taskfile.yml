@@ -1,0 +1,40 @@
+version: '3'
+
+tasks:
+  check-train:
+    env:
+      PYTORCH_ENABLE_MPS_FALLBACK: 1
+      RUST_BACKTRACE: 1
+    cmds:
+      - uv run python -m elfragmentarust_train.training --data_dir ../part_data/ 
+  
+  test:
+    cmds:
+      - uv run --with pytest python -m pytest -xs
+
+  lint:
+    cmds:
+      - uv run ruff check
+
+  fmt:
+    cmds:
+      - uv run ruff format
+
+  build:
+    deps:
+      - fmt
+      - lint
+      - test
+    cmds:
+      - rm -rf dist
+      - uv run --with build python -m build
+
+  publish:
+    deps:
+      - build
+    cmds:
+      - aws s3 cp dist/elfragmentarust_train-*-py3-none-any.whl s3://terraform-workstations-bucket/jspaezp/wheels/
+      - aws s3 cp dist/elfragmentarust_train-*-py3-none-any.whl s3://terraform-workstations-bucket/jspaezp/wheels/elfragmentarust_train-latest-py3-none-any.whl
+
+
+
