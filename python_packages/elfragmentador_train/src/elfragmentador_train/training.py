@@ -1,10 +1,10 @@
 import torch
 import lightning as L
 import argparse
-from elfragmentarust_train.transformer_model import TransformerModel, TransformerConfig
-from elfragmentarust_train.fragment_dataset import (
+from elfragmentador_train.transformer_model import TransformerModel, TransformerConfig
+from elfragmentador_train.fragment_dataset import (
     FragmentationDatasetFactory,
-    SequenceTensorConverter,
+    TorchSequenceTensorConverter,
     ef_batch_collate_fn,
     _testing_row,
 )
@@ -232,7 +232,7 @@ def main():
 
 
 def _sample_batch():
-    conv = SequenceTensorConverter()
+    conv = TorchSequenceTensorConverter()
     sample_row = _testing_row()
     sample_row2 = _testing_row()
     sample_row2["precursor_charge"] = 3

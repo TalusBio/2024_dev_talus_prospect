@@ -1,4 +1,4 @@
-from elfragmentarust_train.transformer_model import (
+from elfragmentador_train.transformer_model import (
     TransformerModel,
     TransformerConfig,
     _test_inputs,

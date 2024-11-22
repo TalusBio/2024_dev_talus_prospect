@@ -1,6 +1,6 @@
-from elfragmentarust_train.fragment_dataset import (
+from elfragmentador_train.fragment_dataset import (
     _testing_row,
-    SequenceTensorConverter,
+    TorchSequenceTensorConverter,
     ef_batch_collate_fn,
 )
 import numpy as np
@@ -21,7 +21,7 @@ import numpy as np
 
 
 def test_smoke_convertsion():
-    conv = SequenceTensorConverter()
+    conv = TorchSequenceTensorConverter()
     sample_row = _testing_row()
     sample_row2 = _testing_row()
     sample_row2["precursor_charge"] = 3
@@ -42,7 +42,7 @@ def test_smoke_convertsion():
         # print(t.shape)
         # Nested tensors have no shape ...
 
-    conv = SequenceTensorConverter()
+    conv = TorchSequenceTensorConverter()
     out1 = conv.tokenize_proforma("[UNIMOD:1]-AC[UNIMOD:4]DEK/2")
 
     # Test that it handles the wrong notation in prospect correctly

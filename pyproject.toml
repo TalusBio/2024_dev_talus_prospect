@@ -1,0 +1,25 @@
+# https://docs.astral.sh/uv/concepts/projects/workspaces/#workspace-sources
+# https://docs.astral.sh/uv/concepts/projects/workspaces/#workspace-layouts
+
+[project]
+name = "elfragmentarust"
+version = "0.1.0"
+requires-python = ">=3.11, <3.13"
+dependencies = ["elfragmentador_train", "elfragmentador_core", "elfragmentadonnx"]
+license = "Apache-2.0"
+
+[tool.uv.sources]
+elfragmentador_train = { workspace = true }
+elfragmentador_core = { workspace = true }
+elfragmentadonnx = { workspace = true }
+
+[tool.uv.workspace]
+members = ["python_packages/elfragmentador_train", "python_packages/elfragmentador_core", "python_packages/elfragmentadonnx"]
+
+# [build-system]
+# requires = ["hatchling"]
+# build-backend = "hatchling.build"
+
+[tool.uv]
+preview = true
+find-links = ["https://download.pytorch.org/whl/torch_stable.html"]

@@ -1,5 +1,5 @@
 import polars as pl
-from elfragmentarust_train.data_utils import MOD_STRIP_REGEX
+from elfragmentador_train.data_utils import MOD_STRIP_REGEX
 import re
 
 

@@ -1,0 +1,36 @@
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "elfragmentador_train"
+version = "0.19.0"
+description = "A transformer model package for training"
+authors = [{ name = "J. Sebastian Paez", email = "spaez@talus.bio" }]
+requires-python = ">=3.11"
+dependencies = [
+  "torch>=2.5.1",
+  "onnx>=1.17.0",
+  "onnxruntime>=1.16.0",
+  "numpy>=2.0",
+  "onnxscript>=0.1.0.dev20241112",
+  "polars>=1.12.0",
+  "rustyms>=0.8.3",
+  "lightning>=2.4.0",
+  "rich>=13.9.4",
+  "elfragmentador_core",
+]
+
+# Dev dependencies
+[tool.optional-dependencies]
+dev = ["pytest", "ruff"]
+
+[tool.uv.sources]
+elfragmentador_core = { workspace = true }
+
+[tool.uv]
+preview = true
+find-links = ["https://download.pytorch.org/whl/torch_stable.html"]
+
+# extras = ["dev"]

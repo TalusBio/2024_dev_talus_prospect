@@ -1,0 +1,14 @@
+[project]
+name = "elfragmentador_core"
+version = "0.19.0"
+description = "A transformer model package for training"
+authors = [{ name = "J. Sebastian Paez", email = "spaez@talus.bio" }]
+requires-python = ">=3.11"
+dependencies = [
+  "numpy>=2.0",
+  "rustyms>=0.8.3",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

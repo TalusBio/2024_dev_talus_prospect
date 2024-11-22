@@ -7,6 +7,14 @@ tasks:
       RUST_BACKTRACE: 1
     cmds:
       - uv run python -m elfragmentarust_train.training --data_dir ../part_data/ 
+
+  clean:
+    cmds:
+      - rm -rf dist
+      - rm -rf build
+      - rm -rf elfragmentarust_train.egg-info
+      - rm -rf lightning_logs
+      - rm *.onnx *.onnx.data
   
   test:
     cmds:

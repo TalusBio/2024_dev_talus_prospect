@@ -1,4 +1,7 @@
 import torch
+from elfragmentador_core.data_utils import (
+    make_src_key_padding_mask as _make_src_key_padding_mask,
+)
 
 MOD_STRIP_REGEX = r"(-)?\[.*?\](-)?"
 
@@ -8,7 +11,7 @@ def batch_to_inputs(batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
     input_ids_ns = batch["seq_tensor"]
     position_ids_ns = batch["pos_tensor"]
     charge_n1 = batch["charge_tensor"]
-    src_key_padding_mask_ns = make_src_key_padding_mask(
+    src_key_padding_mask_ns = make_src_key_padding_mask_torch(
         input_ids_ns, pad_token_id=ord(" ")
     )
     return {
@@ -43,7 +46,7 @@ def collate_tf_inputs(
     }
 
 
-def make_src_key_padding_mask(input_ids_ns, pad_token_id=0):
+def make_src_key_padding_mask_torch(input_ids_ns, pad_token_id=ord(" ")):
     """Makes a mask for the src key padding.
 
     Args:
@@ -57,9 +60,8 @@ def make_src_key_padding_mask(input_ids_ns, pad_token_id=0):
     """
 
     # input_ids_ns: [batch_size, seq_length]
-    mask_ns = torch.zeros_like(input_ids_ns, dtype=torch.float)
-    mask_ns[input_ids_ns == pad_token_id] = -torch.inf
-    return mask_ns
+    mask_ns = _make_src_key_padding_mask(input_ids_ns, pad_token_id=pad_token_id)
+    return torch.from_numpy(mask_ns)
 
 
 def ef_batch_collate_fn(
