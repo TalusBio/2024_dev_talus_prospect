@@ -115,6 +115,7 @@ name = "elfragmentadonnx"
 version = "0.19.0"
 source = { editable = "python_packages/elfragmentadonnx" }
 dependencies = [
+    { name = "elfragmentador-core" },
     { name = "numpy" },
     { name = "onnx" },
     { name = "onnxruntime" },
@@ -125,6 +126,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "elfragmentador-core", editable = "python_packages/elfragmentador_core" },
     { name = "numpy", specifier = ">=2.0" },
     { name = "onnx", specifier = ">=1.17.0" },
     { name = "onnxruntime", specifier = ">=1.16.0" },

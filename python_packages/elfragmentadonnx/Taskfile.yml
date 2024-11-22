@@ -5,3 +5,8 @@ tasks:
   test:
     cmds:
       - uv run python -m pytest -xs
+
+  get-model:
+    cmds:
+      - aws s3 cp s3://terraform-workstations-bucket/jspaezp/weights/ef_0.19.0/version_1/model_9.onnx src/elfragmentadonnx/data/model.onnx
+      - aws s3 cp s3://terraform-workstations-bucket/jspaezp/weights/ef_0.19.0/version_1/model_9.onnx.data src/elfragmentadonnx/data/model_9.onnx.data

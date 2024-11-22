@@ -75,6 +75,11 @@ class SequenceTensorConverter:
         # So ... if it starts with "[" the first character after the first "]" should be "-"
         proforma = _fix_prospect_proforma(proforma)
         peptide = rustyms.LinearPeptide(proforma)
+        return self.tokenize_linear_peptide(peptide, padded_length)
+
+    def tokenize_linear_peptide(
+        self, peptide: rustyms.LinearPeptide, padded_length: int | None = None
+    ) -> tuple[list[int], list[int]]:
         mod_tokens = self.tokenize_mods(peptide)
         seq_tokens = self.tokenize_stripped_sequence(peptide.stripped_sequence)
         final_tokenized = seq_tokens + mod_tokens
@@ -86,8 +91,8 @@ class SequenceTensorConverter:
                 )
             elif add_len < 0:
                 msg = "Padded length is smaller than the base sequence"
-                msg = f"{padded_length} vs {len(final_tokenized)}"
-                msg += f"proforma: {proforma}"
+                msg += f"{padded_length} vs {len(final_tokenized)}"
+                msg += f"proforma: {peptide}"
                 raise RuntimeError(msg)
 
         positions_array = np.array([x[0] for x in final_tokenized])
