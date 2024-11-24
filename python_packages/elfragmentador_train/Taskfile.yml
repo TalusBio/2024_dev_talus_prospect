@@ -2,6 +2,7 @@ version: '3'
 
 tasks:
   check-train:
+    dir: '{{.TASKFILE_DIR}}'
     env:
       PYTORCH_ENABLE_MPS_FALLBACK: 1
       RUST_BACKTRACE: 1
@@ -9,40 +10,33 @@ tasks:
       - uv run python -m elfragmentarust_train.training --data_dir ../part_data/ 
 
   clean:
+    dir: '{{.TASKFILE_DIR}}'
     cmds:
       - rm -rf dist
       - rm -rf build
       - rm -rf elfragmentarust_train.egg-info
       - rm -rf lightning_logs
-      - rm *.onnx *.onnx.data
+      - rm *.onnx *.onnx.data || echo "No onnx files to clean"
   
   test:
+    dir: '{{.TASKFILE_DIR}}'
+    deps:
+      - clean
+    sources:
+      - src/**/*.py
+      - tests/**/*.py
+      - pyproject.toml
     cmds:
       - uv run --with pytest python -m pytest -xs
 
-  lint:
-    cmds:
-      - uv run ruff check
-
-  fmt:
-    cmds:
-      - uv run ruff format
-
   build:
+    dir: '{{.TASKFILE_DIR}}'
     deps:
-      - fmt
-      - lint
       - test
     cmds:
-      - rm -rf dist
+      - task: clean
       - uv run --with build python -m build
 
-  publish:
-    deps:
-      - build
-    cmds:
-      - aws s3 cp dist/elfragmentarust_train-*-py3-none-any.whl s3://terraform-workstations-bucket/jspaezp/wheels/
-      - aws s3 cp dist/elfragmentarust_train-*-py3-none-any.whl s3://terraform-workstations-bucket/jspaezp/wheels/elfragmentarust_train-latest-py3-none-any.whl
 
 
 

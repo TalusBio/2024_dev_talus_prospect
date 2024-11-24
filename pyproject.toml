@@ -3,9 +3,9 @@
 
 [project]
 name = "elfragmentarust"
-version = "0.1.0"
+version = "0.20.0"
 requires-python = ">=3.11, <3.13"
-dependencies = ["elfragmentador_train", "elfragmentador_core", "elfragmentadonnx"]
+dependencies = ["elfragmentador_train", "elfragmentador_core", "elfragmentadonnx", "ruff", "pytest", "bumpver"]
 license = "Apache-2.0"
 
 [tool.uv.sources]
@@ -23,3 +23,12 @@ members = ["python_packages/elfragmentador_train", "python_packages/elfragmentad
 [tool.uv]
 preview = true
 find-links = ["https://download.pytorch.org/whl/torch_stable.html"]
+
+[tool.bumpver]
+current_version = "0.21.1"
+version_pattern = "MAJOR.MINOR.PATCH"
+
+[tool.bumpver.file_patterns]
+"python_packages/**/pyproject.toml" = [
+    'version = "{version}"$',
+]

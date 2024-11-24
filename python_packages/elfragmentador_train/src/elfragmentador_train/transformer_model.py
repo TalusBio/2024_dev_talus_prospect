@@ -8,7 +8,10 @@ import tempfile
 import os
 from onnxruntime import InferenceSession
 import onnx
-from .data_utils import collate_tf_inputs, make_src_key_padding_mask
+from elfragmentador_train.data_utils import (
+    collate_tf_inputs,
+    make_src_key_padding_mask_torch,
+)
 
 
 class AAEmbedder(nn.Module):
@@ -215,7 +218,7 @@ def _test_inputs(extra_seq_len=0):
         "input_ids_ns": input_ids_ns,
         "position_ids_ns": position_ids_ns,
         "charge_n1": torch.tensor([[2.0]], dtype=torch.float, device="cpu"),
-        "src_key_padding_mask_ns": make_src_key_padding_mask(
+        "src_key_padding_mask_ns": make_src_key_padding_mask_torch(
             input_ids_ns, pad_token_id=ord(" ")
         ),
     }

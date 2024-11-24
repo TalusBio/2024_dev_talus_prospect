@@ -1,8 +1,9 @@
-
 from elfragmentador_core.config import IntensityTensorConfig
 
+
 def _test_arrs():
-    out = {"ion_type": [
+    out = {
+        "ion_type": [
             "b",
             "b",
             "b",
@@ -117,9 +118,11 @@ def _test_arrs():
             0.48,
             0.44,
             0.07,
-        ],}
-    
+        ],
+    }
+
     return out
 
+
 def test_intensity_conv():
-    config = IntensityTensorConfig(max_charge=2, max_ordinal=10)
+    config = IntensityTensorConfig(max_charge=2, ion_types=["b", "y"])

@@ -117,7 +117,13 @@ class OnnxPeptideTransformer:
 
             yield outs
 
-    def predict_batched_annotated(self, inputs: Iterator[tuple[str, int]]):
+    def predict_batched_annotated(
+        self,
+        inputs: Iterator[tuple[str, int]],
+        min_intensity: float = 0.001,
+        min_ordinal: int = 0,
+        max_ordinal: int = 1000,
+    ):
         if self.session is None:
             self.session = InferenceSession(self.model_path)
 
@@ -148,12 +154,15 @@ class OnnxPeptideTransformer:
                     rustyms.FragmentationModel.CidHcd,
                 )
                 theo_frag_mzs = {
-                    (f.ion, f.charge): f.formula.mass() / f.charge for f in theo_frags
+                    (f.ion, f.charge): f.formula.mass() / f.charge
+                    for f in theo_frags
+                    if f.neutral_loss is None
                 }
                 back_frags = self.converter.intensity_tensor_config.tensor_to_elems(
                     oue,
-                    max_ordinal=len(pep.stripped_sequence),
-                    min_ordinal=1,
+                    max_ordinal=min(len(pep.stripped_sequence), max_ordinal),
+                    min_ordinal=min_ordinal,
+                    min_intensity=min_intensity,
                 )
                 back_frags = {(f"{k[0]}{k[1]}", k[2]): v for k, v in back_frags.items()}
                 out = {}

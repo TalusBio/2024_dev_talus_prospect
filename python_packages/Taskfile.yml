@@ -1,0 +1,41 @@
+
+version: '3'
+
+includes:
+  onnx: ./elfragmentadonnx/Taskfile.yml
+  train: ./elfragmentador_train/Taskfile.yml
+  core: ./elfragmentador_core/Taskfile.yml
+
+tasks:
+  build:
+    dir: '{{.TASKFILE_DIR}}'
+    cmds:
+      - rm -rf dist
+      - task: onnx:build
+      - task: train:build
+      - task: core:build
+      - mkdir -p dist
+      - cp */dist/*.whl dist/
+
+  publish:
+    dir: '{{.TASKFILE_DIR}}'
+    deps:
+      - build
+    cmds:
+      - for x in dist/*.whl ; do aws s3 cp $x s3://terraform-workstations-bucket/jspaezp/wheels/ ; done
+    
+  fmt:
+    dir: '{{.TASKFILE_DIR}}'
+    cmds:
+      - uv run ruff format
+
+  lint:
+    dir: '{{.TASKFILE_DIR}}'
+    cmds:
+      - uv run ruff check
+
+  test:
+    cmds:
+      - task: onnx:test
+      - task: train:test
+      - task: core:test

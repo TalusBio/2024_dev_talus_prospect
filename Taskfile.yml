@@ -1,0 +1,45 @@
+
+version: '3'
+
+includes:
+  py: ./python_packages/Taskfile.yml
+
+tasks:
+  bumpver-patch:
+    sources:
+      - python_packages/**/*.py
+    cmds:
+      - uv run bumpver update --patch
+
+  bumpver-minor:
+    deps:
+      - bumpver-patch
+    sources:
+      - python_packages/**/*.py
+    cmds:
+      - uv run bumpver update --minor
+
+  build:
+    deps:
+      - bumpver-patch
+    cmds:
+      - task: py:build
+
+  publish:
+    deps:
+      - build
+    cmds:
+      - task: py:publish
+
+  fmt:
+    cmds:
+      - task: py:fmt
+
+  lint:
+    cmds:
+      - task: py:lint
+
+  test:
+    cmds:
+      - task: py:test
+  

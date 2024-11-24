@@ -3,10 +3,27 @@ version: '3'
 
 tasks:
   test:
+    dir: '{{.TASKFILE_DIR}}'
+    sources:
+      - src/**/*.py
+      - tests/**/*.py
+      - pyproject.toml
     cmds:
       - uv run python -m pytest -xs
 
+  build:
+    dir: '{{.TASKFILE_DIR}}'
+    sources:
+      - src/**/*.py
+      - pyproject.toml
+    deps:
+      - test
+    cmds:
+      - rm -rf dist
+      - uv run --with build python -m build
+
   get-model:
+    dir: '{{.TASKFILE_DIR}}'
     cmds:
       - aws s3 cp s3://terraform-workstations-bucket/jspaezp/weights/ef_0.19.0/version_1/model_9.onnx src/elfragmentadonnx/data/model.onnx
       - aws s3 cp s3://terraform-workstations-bucket/jspaezp/weights/ef_0.19.0/version_1/model_9.onnx.data src/elfragmentadonnx/data/model_9.onnx.data

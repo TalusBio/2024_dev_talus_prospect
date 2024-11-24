@@ -1,4 +1,5 @@
 
+**/.task
 **/lightning_logs
 
 **/*.duckdb
@@ -19,5 +20,7 @@
 **/*.pyd
 **/*.c
 **/*.so
+**/*.whl
+**/*.tar.gz
 
 
