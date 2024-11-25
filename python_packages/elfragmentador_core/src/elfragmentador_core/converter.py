@@ -1,10 +1,13 @@
 from dataclasses import dataclass, field
 from functools import lru_cache
+from logging import getLogger
 
 import numpy as np
 import rustyms
 
 from .config import IntensityTensorConfig
+
+logger = getLogger(__name__)
 
 
 def _fix_prospect_proforma(proforma: str) -> str:
@@ -56,11 +59,13 @@ class SequenceTensorConverter:
         for i, mod in enumerate(peptide.sequence):
             if mod.modifications:
                 if len(mod.modifications) > 1:
-                    raise RuntimeError(
-                        f"Peptide {peptide.stripped_sequence} has"
-                        f" multiple modifications at position {i}",
+                    logger.debug(
+                        f"Peptide {peptide.stripped_sequence} {peptide} has"
+                        f" multiple modifications at position {i}: {mod.modifications}"
+                        "This can be normal but can also point to parsing errors.",
                     )
-                mods.append((i, str(mod.modifications[0])))
+                for lmod in mod.modifications:
+                    mods.append((i, str(lmod)))
 
         if peptide.c_term is not None:
             mods.append((len(peptide.sequence), str(peptide.c_term)))
@@ -188,6 +193,7 @@ class SequenceTensorConverter:
             "U:TMT6plex": 218,
             "U:Trimethyl": 219,
             "U:hydroxyisobutyryl": 220,
+            "U:Nitro": 221,
         }
 
         """

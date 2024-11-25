@@ -23,4 +23,5 @@
 **/*.whl
 **/*.tar.gz
 
-
+*.onnx
+*.onnx.data

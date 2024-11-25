@@ -25,7 +25,7 @@ preview = true
 find-links = ["https://download.pytorch.org/whl/torch_stable.html"]
 
 [tool.bumpver]
-current_version = "0.21.2"
+current_version = "0.21.5"
 version_pattern = "MAJOR.MINOR.PATCH"
 
 [tool.bumpver.file_patterns]

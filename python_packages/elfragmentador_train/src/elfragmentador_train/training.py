@@ -178,8 +178,8 @@ class FragmentationModel(L.LightningModule):  # noqa: D101
         outputs = torch.nn.functional.normalize(outputs, dim=(1, 2))
 
         if show:
-            (predictions[0] * 100)[:15, :].long()
-            (outputs[0] * 100)[:15, :].long()
+            logger.info((predictions[0] * 100)[:15, :].long())
+            logger.info((outputs[0] * 100)[:15, :].long())
 
         loss = F.mse_loss(predictions, outputs)
         return loss
