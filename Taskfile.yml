@@ -6,6 +6,10 @@ includes:
 
 tasks:
   bumpver-patch:
+    deps:
+      - fmt
+      - lint
+      - test
     sources:
       - python_packages/**/*.py
     cmds:

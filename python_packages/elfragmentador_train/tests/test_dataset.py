@@ -1,9 +1,9 @@
+import numpy as np
 from elfragmentador_train.fragment_dataset import (
-    _testing_row,
     TorchSequenceTensorConverter,
+    _testing_row,
     ef_batch_collate_fn,
 )
-import numpy as np
 
 # factory = FragmentationDatasetFactory(
 #     fragments_path="part_data/fragments_pq", precursors_path="part_data/precursors_pq"
@@ -28,19 +28,7 @@ def test_smoke_convertsion():
     sample_row2["modified_sequence"] += "K"
     tensors = conv.convert(sample_row)
     tensors2 = conv.convert(sample_row2)
-    print(tensors)
-
-    for t in tensors.values():
-        print(t.shape)
-
-    for t in tensors2.values():
-        print(t.shape)
-
-    ef_batch = ef_batch_collate_fn([tensors, tensors2])
-    for t in ef_batch.values():
-        t.size(0)
-        # print(t.shape)
-        # Nested tensors have no shape ...
+    _ef_batch = ef_batch_collate_fn([tensors, tensors2])
 
     conv = TorchSequenceTensorConverter()
     out1 = conv.tokenize_proforma("[UNIMOD:1]-AC[UNIMOD:4]DEK/2")

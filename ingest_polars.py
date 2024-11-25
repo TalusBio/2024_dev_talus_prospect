@@ -9,6 +9,16 @@
 # ]
 # ///
 
+import json
+import shutil
+from pathlib import Path
+
+import boto3
+import duckdb
+import polars as pl
+from cloudpathlib import S3Path
+from tqdm.auto import tqdm
+
 TESTING_SET = {
     "metadata": "s3://terraform-workstations-bucket/jspaezp/20241022_prospect/TUM_third_pool_meta_data.parquet",
     "files": [
@@ -23,14 +33,6 @@ TESTING_SET = {
 
 OUTPUT_LOC = "s3://terraform-workstations-bucket/jspaezp/20241115_prospect/"
 
-import duckdb
-import polars as pl
-import boto3
-import json
-import shutil
-from pathlib import Path
-from cloudpathlib import S3Path
-from tqdm.auto import tqdm
 
 # con = duckdb.connect(database=":memory:")
 
@@ -89,7 +91,8 @@ def stage_files(metadata_path, files) -> tuple[Path, list[Path]]:
 
     local_dir.mkdir(exist_ok=True, parents=True)
     for file in tqdm(
-        files + [metadata_path], desc=f"Downloading files for {partition_name}"
+        files + [metadata_path],
+        desc=f"Downloading files for {partition_name}",
     ):
         filepath = S3Path(file)
         s3.download_file(filepath.bucket, filepath.key, local_dir / filepath.name)
@@ -114,9 +117,8 @@ def ingest_to_duckdb(metadata_path, files):
         "end_nrows_files": None,
     }
 
-    print(f"Ingesting {partition_name}")
     scanned_metadata = pl.scan_parquet(metadata_path).with_columns(
-        partition=pl.lit(partition_name)
+        partition=pl.lit(partition_name),
     )
     col["start_nrows_meta"] = scanned_metadata.select(pl.len()).collect().item()
 
@@ -138,10 +140,9 @@ def ingest_to_duckdb(metadata_path, files):
         con.execute(
             """
             CREATE TABLE IF NOT EXISTS 'precursor' AS SELECT * FROM read_metadata;
-            """
+            """,
         )
 
-    print("Ingesting files")
     join_cols_l = ["raw_file", "scan_number", "peptide_sequence"]
     join_cols_r = ["raw_file", "scan_number", "modified_sequence"]
 
@@ -153,12 +154,11 @@ def ingest_to_duckdb(metadata_path, files):
     is_first = True
 
     for filechunk in tqdm(chunked_files):
-        print(filechunk)
         scanned_files = pl.scan_parquet(files)
         col["start_nrows_files"] = scanned_files.select(pl.len()).collect().item()
 
         scanned_files_j = scanned_files.with_columns(
-            partition=pl.lit(partition_name)
+            partition=pl.lit(partition_name),
         ).join(
             read_metadata.lazy(),
             left_on=join_cols_l,
@@ -169,71 +169,76 @@ def ingest_to_duckdb(metadata_path, files):
         num_read_lines = 0
 
         try:
-            print("Collecting unique ion types")
             unique_ion_types = scanned_files.select(
-                pl.col("ion_type").unique()
+                pl.col("ion_type").unique(),
             ).collect()
-            print(unique_ion_types)
 
             for ion_type in unique_ion_types["ion_type"]:
-                print(f"Ingesting {ion_type}")
                 filtered_scanned_files = scanned_files_j.filter(
-                    pl.col("ion_type") == ion_type
+                    pl.col("ion_type") == ion_type,
                 )
                 read_files = filtered_scanned_files.collect(streaming=True)
                 num_read_lines += len(read_files)
-                print(f"Read {num_read_lines} lines")
-                print(read_files)
 
                 with duckdb.connect(database=duckdb_file_name, read_only=False) as con:
                     if is_first:
                         con.execute(
                             """
-                            CREATE TABLE IF NOT EXISTS 'fragment' AS SELECT * FROM read_files;
-                            """
+                            CREATE TABLE IF NOT EXISTS 'fragment' AS
+                            SELECT * FROM read_files;
+                            """,
                         )
                         is_first = False
                     else:
                         con.execute(
                             """
-                            INSERT INTO fragment SELECT * FROM read_files;
-                            """
+                            INSERT INTO fragment 
+                            SELECT * FROM read_files;
+                            """,
                         )
                     con.execute("CHECKPOINT")
 
-        except pl.exceptions.ComputeError as e:
-            # polars.exceptions.ComputeError: parquet: File out of specification: underlying IO error: corrupt deflate stream
-            print(f"ComputeError: {e}, logging files and continuing")
+        except pl.exceptions.ComputeError:
+            # polars.exceptions.ComputeError: parquet: File out of specification:
+            #  underlying IO error: corrupt deflate stream
             with open("corrupt_files.txt", "a") as f:
                 for file in filechunk:
                     f.write(file + "\n")
             continue
-
-        print(col)
 
     shutil.rmtree(metadata_path.parent)
 
     return duckdb_file_name
 
 
-def export_to_parquet(duckdb_file_name, partition_name):
+def export_to_parquet(duckdb_file_name, partition_name) -> None:
     fg_loc = f"fragments_pq/partition={partition_name}"
     pq_loc = f"precursors_pq/partition={partition_name}"
     Path(fg_loc).mkdir(parents=True)
     Path(pq_loc).mkdir(parents=True)
     with duckdb.connect(database=duckdb_file_name) as con:
-        print(f"Exporting {duckdb_file_name} to parquet")
-        print("Exporting fragment")
         con.execute(
-            f"COPY fragment TO '{fg_loc}' (FORMAT PARQUET, PARTITION_BY (ion_type), OVERWRITE TRUE, FILENAME_PATTERN 'file_{{i}}')"
+            f"""
+            COPY fragment TO '{fg_loc}' (
+                FORMAT PARQUET,
+                PARTITION_BY (ion_type),
+                OVERWRITE TRUE,
+                FILENAME_PATTERN 'file_{{i}}'
+            )
+            """,
         )
-        print("Exporting precursor")
         con.execute(
-            f"COPY precursor TO '{pq_loc}' (FORMAT PARQUET, PARTITION_BY (mass_analyzer, fragmentation), OVERWRITE TRUE, FILENAME_PATTERN 'file_{{i}}')"
+            f"""COPY precursor TO '{pq_loc}' (
+                FORMAT PARQUET,
+                PARTITION_BY (mass_analyzer, fragmentation),
+                OVERWRITE TRUE,
+                FILENAME_PATTERN 'file_{{i}}'
+            )
+            """,
         )
 
 
-def upload_to_s3(local_dir: Path, s3_path: S3Path, dry_run=False):
+def upload_to_s3(local_dir: Path, s3_path: S3Path, dry_run=False) -> None:
     # Upload a directory.
     # For instance if the local path is "myfiles/mydir/foo.parquet"
     # And I pass as a local dir "myfiles"
@@ -244,25 +249,23 @@ def upload_to_s3(local_dir: Path, s3_path: S3Path, dry_run=False):
     for file in local_dir.rglob("*.parquet"):
         out_key = s3_prefix_key / file.relative_to(local_dir)
         if dry_run:
-            print(f"Would upload {file} to {s3_path.bucket}/{out_key}")
+            pass
         else:
             s3.upload_file(file, s3_path.bucket, out_key)
 
 
-def main():
+def main() -> None:
     partitions = json.load(open("data/annot.json"))
     for part_name, part in tqdm(partitions.items()):
         dbname = part_name + ".duckdb"
-        print(f"Ingesting {part_name}")
         try:
             ingest_to_duckdb(part["metadata"], part["files"])
-        except FileExistsError as e:
-            print(f"Skipping {part_name} because {e}")
-        print(f"Exporting {part_name} to parquet")
+        except FileExistsError:
+            pass
         try:
             export_to_parquet(dbname, part_name)
-        except FileExistsError as e:
-            print(f"Skipping {part_name} because {e}")
+        except FileExistsError:
+            pass
 
     upload_to_s3(
         Path("fragments_pq"),

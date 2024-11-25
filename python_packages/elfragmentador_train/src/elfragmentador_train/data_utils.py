@@ -4,15 +4,18 @@ from elfragmentador_core.data_utils import (
 )
 
 MOD_STRIP_REGEX = r"(-)?\[.*?\](-)?"
+SPC_ORD = ord(" ")
 
 
 def batch_to_inputs(batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+    """Maps the elements from the dataloader to match the model kwargs."""
     # input_ids_ns, position_ids_ns, src_key_padding_mask_ns, charge_n1
     input_ids_ns = batch["seq_tensor"]
     position_ids_ns = batch["pos_tensor"]
     charge_n1 = batch["charge_tensor"]
     src_key_padding_mask_ns = make_src_key_padding_mask_torch(
-        input_ids_ns, pad_token_id=ord(" ")
+        input_ids_ns,
+        pad_token_id=SPC_ORD,
     )
     return {
         "input_ids_ns": input_ids_ns,
@@ -25,11 +28,20 @@ def batch_to_inputs(batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
 def collate_tf_inputs(
     batch: list[dict[str, torch.Tensor]],
 ) -> dict[str, torch.Tensor]:
+    """Collates the tensors into a single batch.
+
+    tf stands for trasnformer-fragment.
+    Meant to be used directly with the model.
+    """
     out_input_ids = torch.nn.utils.rnn.pad_sequence(
-        [t["input_ids_ns"] for t in batch], batch_first=True, padding_value=ord(" ")
+        [t["input_ids_ns"] for t in batch],
+        batch_first=True,
+        padding_value=ord(" "),
     )
     out_position_ids = torch.nn.utils.rnn.pad_sequence(
-        [t["position_ids_ns"] for t in batch], batch_first=True, padding_value=-1
+        [t["position_ids_ns"] for t in batch],
+        batch_first=True,
+        padding_value=-1,
     )
     out_charge = torch.stack([t["charge_n1"] for t in batch])
     out_src_key_padding_mask = torch.nn.utils.rnn.pad_sequence(
@@ -46,19 +58,23 @@ def collate_tf_inputs(
     }
 
 
-def make_src_key_padding_mask_torch(input_ids_ns, pad_token_id=ord(" ")):
+def make_src_key_padding_mask_torch(
+    input_ids_ns: torch.Tensor, pad_token_id: int = SPC_ORD
+) -> torch.Tensor:
     """Makes a mask for the src key padding.
 
     Args:
         input_ids_ns (torch.Tensor): A tensor of shape (N, S) where N is the
             batch size and S is the sequence length.
         pad_token_id (int): The token id to use for padding.
-    Returns:
+
+    Returns
+    -------
         torch.Tensor: A tensor of shape (N, S) where N is the batch size
             and S is the sequence length.
             The values are either 0 or -inf.
-    """
 
+    """
     # input_ids_ns: [batch_size, seq_length]
     mask_ns = _make_src_key_padding_mask(input_ids_ns, pad_token_id=pad_token_id)
     return torch.from_numpy(mask_ns)
@@ -67,16 +83,27 @@ def make_src_key_padding_mask_torch(input_ids_ns, pad_token_id=ord(" ")):
 def ef_batch_collate_fn(
     batch: list[dict[str, torch.Tensor]],
 ) -> dict[str, torch.Tensor]:
+    """Collates the tensors into a single batch.
+
+    ef stands for encoder-fragment.
+    Meant to be used as part of the lit model train loop.
+    """
     # Pad to size the seqs, positoins and intensity tensors
 
     out_seqs = torch.nn.utils.rnn.pad_sequence(
-        [t["seq_tensor"] for t in batch], batch_first=True, padding_value=ord(" ")
+        [t["seq_tensor"] for t in batch],
+        batch_first=True,
+        padding_value=ord(" "),
     )
     out_pos = torch.nn.utils.rnn.pad_sequence(
-        [t["pos_tensor"] for t in batch], batch_first=True, padding_value=-1
+        [t["pos_tensor"] for t in batch],
+        batch_first=True,
+        padding_value=-1,
     )
     out_intensity = torch.nn.utils.rnn.pad_sequence(
-        [t["intensity_tensor"] for t in batch], batch_first=True, padding_value=0
+        [t["intensity_tensor"] for t in batch],
+        batch_first=True,
+        padding_value=0,
     )
     out_charge = torch.stack([t["charge_tensor"] for t in batch])
 

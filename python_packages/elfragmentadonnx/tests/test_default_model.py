@@ -1,6 +1,7 @@
-from elfragmentadonnx.model import OnnxPeptideTransformer
 import random
+
 import rustyms
+from elfragmentadonnx.model import OnnxPeptideTransformer
 
 
 def random_peptide_builder(length_range=(5, 10), num_peptides=10):
@@ -37,7 +38,9 @@ def random_peptide_builder(length_range=(5, 10), num_peptides=10):
 
 
 def random_charged_peptide_builder(
-    length_range=(5, 10), num_peptides=10, charge_range=(2, 3)
+    length_range=(5, 10),
+    num_peptides=10,
+    charge_range=(2, 3),
 ):
     peptides = random_peptide_builder(length_range, num_peptides)
     charged_peptides = []

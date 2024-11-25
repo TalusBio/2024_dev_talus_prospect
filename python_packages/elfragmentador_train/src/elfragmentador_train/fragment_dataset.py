@@ -1,40 +1,20 @@
-"""
-Expected usage of the dataset:
-
-```
-factory = FragmentationDatasetFactory(
-    fragments_path="part_data/fragments_pq", precursors_path="part_data/precursors_pq"
-)
-
-train_ds = factory.get_train_ds() # This gets the dataset
-
-# This makes it a dataloader with the right collate function that pads the tensors
-train_dl = train_ds.with_dataloader(batch_size=32, shuffle=True)
-for batch in train_dl:
-    for k, t in batch.items():
-        print(k)
-        print(t.shape)
-    break
-"""
-
-import torch
-from tqdm.auto import tqdm
-from torch.utils.data import DataLoader, Dataset
-import polars as pl
-import numpy as np
-from dataclasses import dataclass
-from dataclasses import field
-from functools import lru_cache
-import rustyms
 import enum
+from dataclasses import dataclass, field
 from typing import Self
-from .data_utils import ef_batch_collate_fn, MOD_STRIP_REGEX
-from .utils_extra import simple_timer
+
+import numpy as np
+import polars as pl
+import torch
 from elfragmentador_core.config import IntensityTensorConfig
 from elfragmentador_core.converter import SequenceTensorConverter
+from torch.utils.data import DataLoader, Dataset
+from tqdm.auto import tqdm
+
+from .data_utils import MOD_STRIP_REGEX, ef_batch_collate_fn
+from .utils_extra import simple_timer
 
 
-class DatasetSplit(enum.Enum):
+class DatasetSplit(enum.Enum):  # noqa: D101
     TRAIN = "train"
     VAL = "val"
     TEST = "test"
@@ -86,10 +66,13 @@ JOIN_PRECURSOR_COLS = ["modified_sequence", "scan_number", "raw_file", "partitio
 JOIN_FRAGMENT_COLS = ["peptide_sequence", "scan_number", "raw_file", "partition"]
 
 
-class TorchSequenceTensorConverter(SequenceTensorConverter):
+class TorchSequenceTensorConverter(SequenceTensorConverter):  # noqa: D101
     def convert(
-        self, row: dict, token_cache: dict | None = None
+        self,
+        row: dict,
+        token_cache: dict | None = None,
     ) -> dict[str, torch.Tensor]:
+        """Converts a row of the joint precursor+fragment table to an input batch."""
         if token_cache is None:
             token_cache = {}
 
@@ -100,7 +83,10 @@ class TorchSequenceTensorConverter(SequenceTensorConverter):
             token_cache[row["modified_sequence"]] = (tokens, positions)
 
         intensity_tensor = self.intensity_tensor_config.elems_to_tensor(
-            row["no"], row["ion_type"], row["charge"], row["intensity"]
+            row["no"],
+            row["ion_type"],
+            row["charge"],
+            row["intensity"],
         )
         charge_tensor = np.array([row["precursor_charge"]], dtype=np.float32)
         return {
@@ -111,11 +97,9 @@ class TorchSequenceTensorConverter(SequenceTensorConverter):
         }
 
 
-def train_val_test_split(
+def train_val_test_split(  # noqa: D103
     precursors_scanned: pl.LazyFrame,
 ) -> dict[DatasetSplit, set[str]]:
-    print("Building train-test-val splits")
-
     uniq_seqs = (
         precursors_scanned.select(
             pl.col("modified_sequence").unique(),
@@ -123,15 +107,16 @@ def train_val_test_split(
         .with_columns(
             pl.col("modified_sequence")
             .str.replace_all(MOD_STRIP_REGEX, "")
-            .alias("stripped_sequence")
+            .alias("stripped_sequence"),
         )
         .collect()
     )
 
-    seq_to_strip = {
-        m: s
-        for m, s in zip(uniq_seqs["modified_sequence"], uniq_seqs["stripped_sequence"])
-    }
+    seq_to_strip = dict(
+        zip(
+            uniq_seqs["modified_sequence"], uniq_seqs["stripped_sequence"], strict=False
+        )
+    )
     uniq_strip = list(set(seq_to_strip.values()))
     uniq_strip.sort()
 
@@ -158,7 +143,7 @@ def train_val_test_split(
 
 
 @dataclass
-class FragmentationDatasetFactory:
+class FragmentationDatasetFactory:  # noqa: D101
     fragments_path: str
     precursors_path: str
     partitions_keep: list[str] | None = None
@@ -166,26 +151,28 @@ class FragmentationDatasetFactory:
     _split_lazy_frames: dict[DatasetSplit, pl.LazyFrame] | None = None
 
     @property
-    def split_lazy_frames(self) -> dict[DatasetSplit, pl.LazyFrame]:
+    def split_lazy_frames(self) -> dict[DatasetSplit, pl.LazyFrame]:  # noqa: D102
         if self._split_lazy_frames is None:
             self._split_lazy_frames = self.build_split_combined_frames(
-                self.precursors_path, self.fragments_path
+                self.precursors_path,
+                self.fragments_path,
             )
         return self._split_lazy_frames
 
-    def get_train_ds(self) -> "FragmentationDataset":
+    def get_train_ds(self) -> "FragmentationDataset":  # noqa: D102
         return self.build_split_dataset(DatasetSplit.TRAIN, progress_bar=True)
 
-    def get_val_ds(self) -> "FragmentationDataset":
+    def get_val_ds(self) -> "FragmentationDataset":  # noqa: D102
         return self.build_split_dataset(DatasetSplit.VAL, progress_bar=True)
 
-    def get_test_ds(self) -> "FragmentationDataset":
+    def get_test_ds(self) -> "FragmentationDataset":  # noqa: D102
         return self.build_split_dataset(DatasetSplit.TEST, progress_bar=True)
 
-    def build_split_dataset(
-        self, split: DatasetSplit, progress_bar: bool = False
+    def build_split_dataset(  # noqa: D102
+        self,
+        split: DatasetSplit,
+        progress_bar: bool = False,
     ) -> "FragmentationDataset":
-        print(f"Building dataset for {split}")
         return FragmentationDataset.new(
             self.split_lazy_frames[split]["fragments"],
             self.split_lazy_frames[split]["precursors"],
@@ -193,10 +180,11 @@ class FragmentationDatasetFactory:
             progress_bar=progress_bar,
         )
 
-    def build_scanned_frames(
-        self, precrsors_path: str, fragments_path: str
+    def build_scanned_frames(  # noqa: D102
+        self,
+        precrsors_path: str,
+        fragments_path: str,
     ) -> dict[str, pl.LazyFrame]:
-        print(f"Building frames for {fragments_path} and {precrsors_path}")
         fragments = (
             pl.scan_parquet(fragments_path)
             .filter(pl.col("neutral_loss") == "", pl.col("fragment_score") > 0.5)
@@ -211,10 +199,10 @@ class FragmentationDatasetFactory:
 
         if self.partitions_keep is not None:
             fragments = fragments.filter(
-                pl.col("partition").is_in(self.partitions_keep)
+                pl.col("partition").is_in(self.partitions_keep),
             )
             precursors = precursors.filter(
-                pl.col("partition").is_in(self.partitions_keep)
+                pl.col("partition").is_in(self.partitions_keep),
             )
 
         fragments = (
@@ -229,43 +217,36 @@ class FragmentationDatasetFactory:
             "precursors": precursors,
         }
 
-    def build_split_combined_frames(
-        self, precrsors_path: str, fragments_path: str
+    def build_split_combined_frames(  # noqa: D102
+        self,
+        precrsors_path: str,
+        fragments_path: str,
     ) -> dict[DatasetSplit, pl.LazyFrame]:
         frames = self.build_scanned_frames(precrsors_path, fragments_path)
         split = train_val_test_split(frames["precursors"])
 
-        print("Pre-building splits")
         out = {}
         for k, v in split.items():
             local_precs = frames["precursors"].filter(
-                pl.col("modified_sequence").is_in(v)
+                pl.col("modified_sequence").is_in(v),
             )
             local_frags = frames["fragments"].filter(
-                pl.col("peptide_sequence").is_in(v)
+                pl.col("peptide_sequence").is_in(v),
             )
             out[k] = {
                 "fragments": local_frags,
                 "precursors": local_precs,
             }
 
-            # local_frags.join(
-            #     local_precs,
-            #     left_on=JOIN_FRAGMENT_COLS,
-            #     right_on=JOIN_PRECURSOR_COLS,
-            #     how="inner",
-            #     # validate="1:1",
-            #     # For some reason this is not passing ...
-            # )
         return out
 
 
-class FragmentationDataset(Dataset):
-    def __init__(self, elems: list[dict[str, torch.Tensor]]):
+class FragmentationDataset(Dataset):  # noqa: D101
+    def __init__(self, elems: list[dict[str, torch.Tensor]]) -> None:
         self.elems = elems
 
     @classmethod
-    def new(
+    def new(  # noqa: D102
         cls,
         fragments: pl.LazyFrame,
         precursors: pl.LazyFrame,
@@ -277,9 +258,9 @@ class FragmentationDataset(Dataset):
             collected_precs = precursors.collect(streaming=True)
             uniq_partitions = collected_precs["partition"].unique()
 
-        col_rename_dict = {
-            k: v for k, v in zip(JOIN_FRAGMENT_COLS, JOIN_PRECURSOR_COLS)
-        }
+        col_rename_dict = dict(
+            zip(JOIN_FRAGMENT_COLS, JOIN_PRECURSOR_COLS, strict=False)
+        )
 
         for part in tqdm(
             uniq_partitions,
@@ -288,13 +269,10 @@ class FragmentationDataset(Dataset):
         ):
             with simple_timer(f"Joining fragments and precursors ({part})"):
                 local_precs = collected_precs.filter(
-                    pl.col("partition").is_in([part])
+                    pl.col("partition").is_in([part]),
                 ).lazy()
                 collected_frags = fragments.filter(
                     pl.col("partition").is_in([part]),
-                    # These were needed due to memory issues
-                    # pl.col("raw_file").is_in(local_precs["raw_file"].unique()),
-                    # pl.col("scan_number").is_in(local_precs["scan_number"].unique()),
                 ).rename(col_rename_dict)
 
                 # AS OF 2024-11-20
@@ -313,10 +291,10 @@ class FragmentationDataset(Dataset):
                     how="inner",
                 ).collect(streaming=True)
 
-            print(joint)
-
-            # TODO: reimplement the cache as an LRU cache in SequenceTensorConverter.tokenize_proforma
-            # TODO: Check if the intensity tensor can be built faster using list -> array build.
+            # TODO: reimplement the cache as an LRU cache in
+            # SequenceTensorConverter.tokenize_proforma
+            # TODO: Check if the intensity tensor can be built faster
+            #       using list -> array build.
             #       Since in-place mod COULD be faster, but it's not clear if it is.
             with simple_timer(f"Converting rows ({part})"):
                 token_cache = {}
@@ -327,10 +305,11 @@ class FragmentationDataset(Dataset):
                         total=len(joint),
                         disable=not progress_bar,
                         desc="Converting rows",
-                    )
+                    ),
                 ):
                     local_elems[row_idx] = converter.convert(
-                        row, token_cache=token_cache
+                        row,
+                        token_cache=token_cache,
                     )
 
                 assert not any(x is None for x in local_elems)
@@ -338,19 +317,22 @@ class FragmentationDataset(Dataset):
 
         return cls(elems=elems)
 
-    def __len__(self):
+    def __len__(self) -> int:  # noqa: ANN201, D102
         return len(self.elems)
 
-    def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
+    def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:  # noqa: ANN201, D102
         return self.elems[idx]
 
-    def with_dataloader(self, batch_size: int, shuffle: bool = False) -> DataLoader:
+    def with_dataloader(self, batch_size: int, shuffle: bool = False) -> DataLoader:  # noqa: ANN201, D102
         return DataLoader(
-            self, batch_size=batch_size, shuffle=shuffle, collate_fn=ef_batch_collate_fn
+            self,
+            batch_size=batch_size,
+            shuffle=shuffle,
+            collate_fn=ef_batch_collate_fn,
         )
 
 
-def _testing_row():
+def _testing_row() -> dict:
     return {
         "modified_sequence": "AANDAGYFNDEM[UNIMOD:35]APIEVK[UNIMOD:121]TK",
         "scan_number": 26983,

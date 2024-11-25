@@ -1,12 +1,12 @@
-from onnxruntime import InferenceSession
-from elfragmentador_core.config import IntensityTensorConfig
+import itertools
+from collections.abc import Generator, Iterator
+from pathlib import Path
+
+import numpy as np
+import rustyms
 from elfragmentador_core.converter import SequenceTensorConverter
 from elfragmentador_core.data_utils import make_src_key_padding_mask
-import numpy as np
-from pathlib import Path
-from typing import Iterator, Generator
-import rustyms
-import itertools
+from onnxruntime import InferenceSession
 
 
 def batched(iterable, n, *, strict=False):
@@ -27,10 +27,13 @@ class OnnxSequenceTensorConverter(SequenceTensorConverter):
         return self.convert_with_peptide(modified_sequence, charge)[0]
 
     def _convert_linear_peptide(
-        self, peptide: rustyms.LinearPeptide, charge: int
+        self,
+        peptide: rustyms.LinearPeptide,
+        charge: int,
     ) -> dict[str, np.array]:
         tokens, positions = self.tokenize_linear_peptide(
-            peptide, padded_length=self.max_length
+            peptide,
+            padded_length=self.max_length,
         )
         charge_tensor = np.array([charge], dtype=np.float32)
         padding_mask = make_src_key_padding_mask(tokens, pad_token_id=ord(" "))
@@ -48,7 +51,9 @@ class OnnxSequenceTensorConverter(SequenceTensorConverter):
         }
 
     def convert_with_peptide(
-        self, modified_sequence: str, charge: int
+        self,
+        modified_sequence: str,
+        charge: int,
     ) -> tuple[dict[str, np.array], rustyms.LinearPeptide]:
         peptide = rustyms.LinearPeptide(modified_sequence + f"/{charge}")
         outs = self._convert_linear_peptide(peptide, charge=charge)
@@ -60,7 +65,8 @@ def collate_inputs(batch: list[dict[str, np.array]]) -> dict[str, np.array]:
     out_position_ids = np.stack([t["position_ids_s"] for t in batch], axis=0)
     out_charge = np.stack([t["charge_1"] for t in batch], axis=0)
     out_src_key_padding_mask = np.stack(
-        [t["src_key_padding_mask_s"] for t in batch], axis=0
+        [t["src_key_padding_mask_s"] for t in batch],
+        axis=0,
     )
     return {
         "input_ids_ns": out_input_ids,
@@ -71,7 +77,7 @@ def collate_inputs(batch: list[dict[str, np.array]]) -> dict[str, np.array]:
 
 
 class OnnxPeptideTransformer:
-    def __init__(self, model_path: str):
+    def __init__(self, model_path: str) -> None:
         self.model_path = model_path
         self.converter = OnnxSequenceTensorConverter()
         self.session = None
@@ -94,7 +100,8 @@ class OnnxPeptideTransformer:
         return output[0][0]
 
     def predict_batched(
-        self, inputs: Iterator[tuple[str, int]]
+        self,
+        inputs: Iterator[tuple[str, int]],
     ) -> Generator[np.array, None, None]:
         if self.session is None:
             self.session = InferenceSession(self.model_path)
@@ -148,7 +155,7 @@ class OnnxPeptideTransformer:
                 peptides = peptides[:batch_len]
 
             # self.converter.intensity_tensor_config.tensor_to_elems
-            for pep, oue in zip(peptides, outs):
+            for pep, oue in zip(peptides, outs, strict=False):
                 theo_frags = pep.generate_theoretical_fragments(
                     self.converter.intensity_tensor_config.max_charge,
                     rustyms.FragmentationModel.CidHcd,

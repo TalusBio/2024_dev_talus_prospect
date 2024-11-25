@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "elfragmentador_train"
-version = "0.21.1"
+version = "0.21.2"
 description = "A transformer model package for training"
 authors = [{ name = "J. Sebastian Paez", email = "spaez@talus.bio" }]
 requires-python = ">=3.11"
@@ -20,6 +20,7 @@ dependencies = [
   "lightning>=2.4.0",
   "rich>=13.9.4",
   "elfragmentador_core",
+  "loguru",
 ]
 
 # Dev dependencies

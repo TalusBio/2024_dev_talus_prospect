@@ -1,6 +1,7 @@
+import re
+
 import polars as pl
 from elfragmentador_train.data_utils import MOD_STRIP_REGEX
-import re
 
 
 def test_mod_strip_regex():
@@ -15,7 +16,7 @@ def test_mod_strip_regex_polars():
             "[UNIMOD:1]-AC[UNIMOD:4]DEK/2",
             "[UNIMOD:1]AC[UNIMOD:4]DEK/2",
             "[UNIMOD:1]AC[UNIMOD:4]DEK[UNIMOD:1]-[UNIMOD:1]/2",
-        ]
+        ],
     )
     out = series.str.replace_all(MOD_STRIP_REGEX, "")
     assert out.to_list() == ["ACDEK/2", "ACDEK/2", "ACDEK/2"]

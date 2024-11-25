@@ -1,8 +1,10 @@
-from .config import IntensityTensorConfig
 from dataclasses import dataclass, field
-import rustyms
-import numpy as np
 from functools import lru_cache
+
+import numpy as np
+import rustyms
+
+from .config import IntensityTensorConfig
 
 
 def _fix_prospect_proforma(proforma: str) -> str:
@@ -21,20 +23,42 @@ def _fix_prospect_proforma(proforma: str) -> str:
 
 @dataclass(frozen=True, slots=True, eq=True)
 class SequenceTensorConverter:
+    """A sequence tensor converter.
+
+    TODO: Write usage.
+    """
+
     intensity_tensor_config: IntensityTensorConfig = field(
-        default_factory=IntensityTensorConfig
+        default_factory=IntensityTensorConfig,
     )
 
     def tokenize_mods(
-        self, peptide: rustyms.LinearPeptide
-    ) -> tuple[np.array, np.array]:
-        MOD_TOKENS = self.mod_tokens()
+        self,
+        peptide: rustyms.LinearPeptide,
+    ) -> list[tuple[int, int]]:
+        """Tokenizes the modifications.
+
+        Parameters
+        ----------
+            peptide (rustyms.LinearPeptide): The peptide.
+
+        Returns
+        -------
+            list[tuple[int, int]]: The tokens.
+
+        Raises
+        ------
+            KeyError: If the modification is not in the mod_tokens dictionary.
+
+        """
+        mod_tokens = self.mod_tokens()
         mods: list[tuple[int, str]] = []
         for i, mod in enumerate(peptide.sequence):
             if mod.modifications:
                 if len(mod.modifications) > 1:
                     raise RuntimeError(
-                        f"Peptide {peptide.stripped_sequence} has multiple modifications at position {i}"
+                        f"Peptide {peptide.stripped_sequence} has"
+                        f" multiple modifications at position {i}",
                     )
                 mods.append((i, str(mod.modifications[0])))
 
@@ -44,42 +68,79 @@ class SequenceTensorConverter:
         if peptide.n_term is not None:
             mods.append((0, str(peptide.n_term)))
 
-        mod_tokens = [(mod[0], MOD_TOKENS[mod[1]]) for mod in mods]
+        mod_tokens = [(mod[0], mod_tokens[mod[1]]) for mod in mods]
         return mod_tokens
 
     def tokenize_stripped_sequence(
-        self, stripped_sequence: str
-    ) -> tuple[np.array, np.array]:
+        self,
+        stripped_sequence: str,
+    ) -> list[tuple[int, int]]:
+        """Tokenizes a stripped sequence.
+
+        Parameters
+        ----------
+            stripped_sequence (str): The stripped sequence.
+
+        Returns
+        -------
+            list[tuple[int, int]]: The tokens.
+
+        """
         seq_string = "^" + stripped_sequence + "$"
         seq_tokens = [(i, ord(c)) for i, c in enumerate(seq_string)]
         return seq_tokens
 
     def tokenize_proforma(
-        self, proforma: str, padded_length: int | None = None
+        self,
+        proforma: str,
+        padded_length: int | None = None,
     ) -> tuple[np.array, np.array]:
         """Tokenizes a proforma peptide.
 
         Args:
             proforma (str): The proforma peptide to tokenize.
-            padded_length (int | None, optional): The length of the padded sequence. Defaults to None.
+            padded_length (int | None, optional): The length of the padded sequence.
+                Defaults to None.
 
-        Returns:
-            tuple[np.array, np.array]: A tuple of two numpy arrays. The first contains the token values
-            and the second contains the token positions.
+        Returns
+        -------
+            tuple[np.array, np.array]: A tuple of two numpy arrays.
+                The first contains the token values
+                and the second contains the token positions.
 
-        Raises:
-            RuntimeError: If the padding length is smaller than the length of the tokenized sequence.
+        Raises
+        ------
+            RuntimeError: If the padding length is smaller than the length
+                of the tokenized sequence.
+
         """
-
         # Prospect has wrong proforma peptides ... [UNIMOD:1]K should be [UNIMOD:1]-K
-        # So ... if it starts with "[" the first character after the first "]" should be "-"
+        # So ... if it starts with "[" the first character after the first "]"
+        # should be "-"
         proforma = _fix_prospect_proforma(proforma)
         peptide = rustyms.LinearPeptide(proforma)
         return self.tokenize_linear_peptide(peptide, padded_length)
 
     def tokenize_linear_peptide(
-        self, peptide: rustyms.LinearPeptide, padded_length: int | None = None
+        self,
+        peptide: rustyms.LinearPeptide,
+        padded_length: int | None = None,
     ) -> tuple[list[int], list[int]]:
+        """Tokenizes a linear peptide.
+
+        Parameters
+        ----------
+            peptide (rustyms.LinearPeptide): The peptide.
+            padded_length (int | None, optional): The length to pad the sequence to.
+                Defaults to None.
+
+        Returns
+        -------
+            tuple[list[int], list[int]]: A tuple of two lists.
+                The first contains the token values
+                and the second contains the token positions.
+
+        """
         mod_tokens = self.tokenize_mods(peptide)
         seq_tokens = self.tokenize_stripped_sequence(peptide.stripped_sequence)
         final_tokenized = seq_tokens + mod_tokens
@@ -104,7 +165,33 @@ class SequenceTensorConverter:
     @staticmethod
     @lru_cache(maxsize=1)
     def mod_tokens() -> dict[str, int]:
+        """Returns the mod tokens."""
+        MOD_TOKENS = {  # noqa: N806
+            "U:Acetyl": 200,
+            "U:Butyryl": 201,
+            "U:Carbamidomethyl": 202,
+            "U:Crotonyl": 203,
+            "U:Deamidated": 204,
+            "U:Dimethyl": 205,
+            "U:Formyl": 206,
+            "U:GG": 207,
+            "U:Gln->pyro-Glu": 208,
+            "U:Glu->pyro-Glu": 209,
+            "U:Gluratylation": 210,
+            "U:HexNAc": 211,
+            "U:Malonyl": 212,
+            "U:Methyl": 213,
+            "U:Oxidation": 214,
+            "U:Phospho": 215,
+            "U:Propionyl": 216,
+            "U:Succinyl": 217,
+            "U:TMT6plex": 218,
+            "U:Trimethyl": 219,
+            "U:hydroxyisobutyryl": 220,
+        }
+
         """
+        This is how it was generated in the first place.
 
         ```python
         modnames = []
@@ -138,11 +225,15 @@ class SequenceTensorConverter:
             "Y[UNIMOD:21]",
             "[UNIMOD:1]-K",
             "[UNIMOD:737]-K",
-        ]
+        ].
 
         for mod in mods:
             pep = rustyms.LinearPeptide(mod)
-            local_mods = [str(x.modifications[0]) for x in pep.sequence if x.modifications]
+            local_mods = [
+                str(x.modifications[0])
+                for x in pep.sequence
+                if x.modifications
+            ]
             modnames.extend(local_mods)
             if pep.n_term is not None:
                 modnames.append(str(pep.n_term))
@@ -158,27 +249,4 @@ class SequenceTensorConverter:
         ```
 
         """
-        MOD_TOKENS = {
-            "U:Acetyl": 200,
-            "U:Butyryl": 201,
-            "U:Carbamidomethyl": 202,
-            "U:Crotonyl": 203,
-            "U:Deamidated": 204,
-            "U:Dimethyl": 205,
-            "U:Formyl": 206,
-            "U:GG": 207,
-            "U:Gln->pyro-Glu": 208,
-            "U:Glu->pyro-Glu": 209,
-            "U:Gluratylation": 210,
-            "U:HexNAc": 211,
-            "U:Malonyl": 212,
-            "U:Methyl": 213,
-            "U:Oxidation": 214,
-            "U:Phospho": 215,
-            "U:Propionyl": 216,
-            "U:Succinyl": 217,
-            "U:TMT6plex": 218,
-            "U:Trimethyl": 219,
-            "U:hydroxyisobutyryl": 220,
-        }
         return MOD_TOKENS

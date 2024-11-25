@@ -8,6 +8,7 @@ includes:
 
 tasks:
   build:
+    desc: "Build all the packages and store the wheels in the dist directory"
     dir: '{{.TASKFILE_DIR}}'
     cmds:
       - rm -rf dist
@@ -19,6 +20,7 @@ tasks:
 
   publish:
     dir: '{{.TASKFILE_DIR}}'
+    desc: "Copy all the wheels to the S3 bucket"
     deps:
       - build
     cmds:
@@ -35,6 +37,7 @@ tasks:
       - uv run ruff check
 
   test:
+    desc: "Run the tests for all the python packages"
     cmds:
       - task: onnx:test
       - task: train:test

@@ -1,13 +1,18 @@
+from __future__ import annotations
+
+import os
+import tempfile
+from dataclasses import dataclass
+
+import onnx
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from dataclasses import dataclass
 import torch.onnx
-from torch.nn.modules.transformer import TransformerEncoder, TransformerEncoderLayer
-import tempfile
-import os
+from loguru import logger
 from onnxruntime import InferenceSession
-import onnx
+from torch.nn.modules.transformer import TransformerEncoder, TransformerEncoderLayer
+
 from elfragmentador_train.data_utils import (
     collate_tf_inputs,
     make_src_key_padding_mask_torch,
@@ -33,20 +38,23 @@ class AAEmbedder(nn.Module):
 
     """
 
-    def __init__(self, embedding_dim):
+    def __init__(self, embedding_dim: int) -> None:
         super().__init__()
         self.embedding_dim = embedding_dim
         self.embedding = nn.Embedding(255, embedding_dim)
 
-    def forward(self, x_ns):
+    def forward(self, x_ns: torch.Tensor) -> torch.Tensor:  # noqa: ANN201, D102
         """Embeds a batch of sequences.
 
         Args:
             x (torch.Tensor): A tensor of shape (N, S) where N is the batch size
                 and S is the sequence length.
-        Returns:
+
+        Returns
+        -------
             torch.Tensor: A tensor of shape (N, S, E) where E is the embedding
                 dimension.
+
         """
         return self.embedding(x_ns)
 
@@ -67,17 +75,19 @@ class PositionalEncoding(nn.Module):
     ]
     """
 
-    def __init__(self, embedding_dim):
+    def __init__(self, embedding_dim: int) -> None:
         super().__init__()
         self.phase_proj = nn.Linear(1, embedding_dim)
 
-    def forward(self, x_ns):
+    def forward(self, x_ns: torch.Tensor) -> torch.Tensor:  # noqa: ANN201, D102
         out_nse = torch.sin(self.phase_proj(x_ns.unsqueeze(-1)))
         return out_nse
 
 
 @dataclass
 class TransformerConfig:
+    """Configuration for the transformer model."""
+
     hidden_size: int
     num_layers: int
     num_attention_heads: int
@@ -86,8 +96,8 @@ class TransformerConfig:
     mlp_output_size: int = 4
 
 
-class TransformerModel(nn.Module):
-    def __init__(self, config: TransformerConfig):
+class TransformerModel(nn.Module):  # noqa: D101
+    def __init__(self, config: TransformerConfig) -> None:
         super().__init__()
         self.config = config
         self.embeddings = AAEmbedder(config.hidden_size)
@@ -114,20 +124,35 @@ class TransformerModel(nn.Module):
         self.layernorm = nn.LayerNorm(config.hidden_size)
         self.dropout = nn.Dropout(config.dropout)
 
-    def clone_in_cpu(self):
+    def clone_in_cpu(self) -> TransformerModel:
+        """Clones the model in CPU.
+
+        Makes a copy of the model, transfers the weights and puts it in CPU.
+        """
         out = TransformerModel(self.config).cpu()
         out.eval()
         state = {k: v.cpu() for k, v in self.state_dict().items()}
         out.load_state_dict(state)
         return out.to("cpu")
 
-    def to_onnx(self, path: str):
+    def to_onnx(self, path: str) -> None:
+        """Exports the model to ONNX.
+
+        Parameters
+        ----------
+            path (str): The path to export the model to.
+
+        Raises
+        ------
+            RuntimeError: If the model fails to export.
+
+        """
         model = self.clone_in_cpu()
 
         # test_inputs = _test_inputs(padding_size=20)
         # seq_len = test_inputs["position_ids_ns"].shape[1]
 
-        test_inputs = _test_inputs_batch()
+        test_inputs = _sample_inputs_batch()
 
         # Create a temporary directory to store the exported model
         with tempfile.TemporaryDirectory() as tmpdirname:
@@ -154,7 +179,7 @@ class TransformerModel(nn.Module):
             session = InferenceSession(model_path)
 
             # Run inference using the ONNXRuntime
-            test_inputs = _test_inputs_batch()
+            test_inputs = _sample_inputs_batch()
             local_seq_len = test_inputs["position_ids_ns"].shape[1]
             batch_size = test_inputs["input_ids_ns"].shape[0]
             output = session.run(None, {k: v.numpy() for k, v in test_inputs.items()})
@@ -163,14 +188,16 @@ class TransformerModel(nn.Module):
                 local_seq_len,
                 self.config.mlp_output_size,
             ):
-                msg = f"Erroneous onnx export, expected (batch ({batch_size}), seq_len ({local_seq_len}), {self.config.mlp_output_size}) output shape"
+                msg = f"Erroneous onnx export, expected (batch ({batch_size}),"
+                msg += f" seq_len ({local_seq_len}),"
+                msg += f" {self.config.mlp_output_size}) output shape"
                 msg += f" but got {output[0].shape}"
                 raise RuntimeError(msg)
 
         # once it passes export out of the temporary directory
-        print(f"Exporting to {path}")
+        logger.info(f"Exporting to {path}")
         shapes = {k: v.shape for k, v in test_inputs.items()}
-        print(f"test_inputs: {shapes}")
+        logger.info(f"test_inputs: {shapes}")
         torch.onnx.export(
             model=model,
             f=path,
@@ -183,14 +210,20 @@ class TransformerModel(nn.Module):
             verbose=True,
         )
 
-    def forward(
-        self, input_ids_ns, position_ids_ns, charge_n1, src_key_padding_mask_ns
+    def forward(  # noqa: ANN201, D102
+        self,
+        input_ids_ns: torch.Tensor,
+        position_ids_ns: torch.Tensor,
+        charge_n1: torch.Tensor,
+        src_key_padding_mask_ns: torch.Tensor,
     ):
         inputs_embeds_nse = self.embeddings(input_ids_ns)
         position_embeds_nse = self.position_embeddings(position_ids_ns)
         charge_embeds_ne = F.relu(self.charge_encoder(charge_n1))
         charge_embeds_nse = torch.einsum(
-            "...se, ...e -> ...se", torch.ones_like(inputs_embeds_nse), charge_embeds_ne
+            "...se, ...e -> ...se",
+            torch.ones_like(inputs_embeds_nse),
+            charge_embeds_ne,
         )
 
         hidden_states_nse = inputs_embeds_nse + position_embeds_nse + charge_embeds_nse
@@ -206,11 +239,14 @@ class TransformerModel(nn.Module):
         return output_nse
 
 
-def _test_inputs(extra_seq_len=0):
+def _test_inputs(extra_seq_len: int = 0) -> dict[str, torch.Tensor]:
+    """A single entry used as input for testing of the model."""
     input_str = "^MYPEPT" + ("A" * extra_seq_len) + "IDEK$" + (" " * extra_seq_len)
 
     input_ids_ns = torch.tensor(
-        [ord(x) for x in input_str], dtype=torch.long, device="cpu"
+        [ord(x) for x in input_str],
+        dtype=torch.long,
+        device="cpu",
     ).unsqueeze(0)
     position_ids_ns = torch.arange(len(input_str), device="cpu").float().unsqueeze(0)
 
@@ -219,16 +255,22 @@ def _test_inputs(extra_seq_len=0):
         "position_ids_ns": position_ids_ns,
         "charge_n1": torch.tensor([[2.0]], dtype=torch.float, device="cpu"),
         "src_key_padding_mask_ns": make_src_key_padding_mask_torch(
-            input_ids_ns, pad_token_id=ord(" ")
+            input_ids_ns,
+            pad_token_id=ord(" "),
         ),
     }
 
 
-def _test_inputs_unbatched(extra_seq_len=0):
+def _test_inputs_unbatched(extra_seq_len: int = 0) -> dict[str, torch.Tensor]:
+    """A sample input used as input for testing of the model.
+
+    Check the `_sample_inputs_batch` function for a sample batch.
+    """
     return {k: v[0] for k, v in _test_inputs(extra_seq_len).items()}
 
 
-def _test_inputs_batch():
+def _sample_inputs_batch() -> dict[str, torch.Tensor]:
+    """A sample batch used as input for testing of the model."""
     batch = [
         _test_inputs_unbatched(extra_seq_len=pad_size) for pad_size in range(1, 10)
     ]

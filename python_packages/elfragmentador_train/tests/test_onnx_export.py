@@ -1,6 +1,6 @@
 from elfragmentador_train.transformer_model import (
-    TransformerModel,
     TransformerConfig,
+    TransformerModel,
     _test_inputs,
 )
 

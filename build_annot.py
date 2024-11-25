@@ -1,4 +1,3 @@
-from pathlib import Path
 import json
 
 PREFIX = "s3://terraform-workstations-bucket/jspaezp/20241022_prospect/"
