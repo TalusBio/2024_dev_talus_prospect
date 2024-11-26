@@ -3,9 +3,18 @@
 
 [project]
 name = "elfragmentarust"
-version = "0.20.0"
+version = "0.21.9"
 requires-python = ">=3.11, <3.13"
-dependencies = ["elfragmentador_train", "elfragmentador_core", "elfragmentadonnx", "ruff", "pytest", "bumpver"]
+dependencies = [
+    "elfragmentador_train",
+    "elfragmentador_core",
+    "elfragmentadonnx",
+    "ruff",
+    "pytest",
+    "bumpver",
+    "ipykernel",
+    "matplotlib",
+]
 license = "Apache-2.0"
 
 [tool.uv.sources]
@@ -14,7 +23,11 @@ elfragmentador_core = { workspace = true }
 elfragmentadonnx = { workspace = true }
 
 [tool.uv.workspace]
-members = ["python_packages/elfragmentador_train", "python_packages/elfragmentador_core", "python_packages/elfragmentadonnx"]
+members = [
+    "python_packages/elfragmentador_train",
+    "python_packages/elfragmentador_core",
+    "python_packages/elfragmentadonnx",
+]
 
 # [build-system]
 # requires = ["hatchling"]
@@ -25,13 +38,12 @@ preview = true
 find-links = ["https://download.pytorch.org/whl/torch_stable.html"]
 
 [tool.bumpver]
-current_version = "0.21.5"
+current_version = "0.21.9"
 version_pattern = "MAJOR.MINOR.PATCH"
 
 [tool.bumpver.file_patterns]
-"python_packages/**/pyproject.toml" = [
-    'version = "{version}"$',
-]
+"python_packages/**/pyproject.toml" = ['version = "{version}"$']
+"pyproject.toml" = ['version = "{version}"$']
 
 [tool.ruff]
 line-length = 88

@@ -7,7 +7,7 @@ tasks:
       PYTORCH_ENABLE_MPS_FALLBACK: 1
       RUST_BACKTRACE: 1
     cmds:
-      - uv run python -m elfragmentarust_train.training --data_dir ../part_data/ 
+      - uv run python -m elfragmentador_train.training --data_dir ../../part_data/ 
 
   clean:
     dir: '{{.TASKFILE_DIR}}'

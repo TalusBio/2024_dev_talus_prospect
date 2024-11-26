@@ -8,7 +8,7 @@ from pathlib import Path
 import lightning as L
 import torch
 import torch.nn.functional as F
-from lightning.pytorch.callbacks import ModelCheckpoint
+from lightning.pytorch.callbacks import ModelCheckpoint, RichModelSummary
 from loguru import logger
 from torch.utils.data import DataLoader
 
@@ -229,10 +229,11 @@ def build_trainer() -> L.Trainer:
         save_last=True,
         filename="{epoch}-{val_loss:.6f}",
     )
+    modelsum = RichModelSummary(max_depth=2)
     return L.Trainer(
         max_epochs=10,
-        callbacks=[checkpoint_callback],
-        max_time={"days": 0, "hours": 12},
+        callbacks=[checkpoint_callback, modelsum],
+        max_time={"days": 0, "hours": 24},
         enable_progress_bar=True,
         limit_val_batches=0.5,
         gradient_clip_val=1.0,

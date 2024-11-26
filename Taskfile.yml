@@ -12,6 +12,7 @@ tasks:
       - test
     sources:
       - python_packages/**/*.py
+      - python_packages/**/data/*.onnx
     cmds:
       - uv run bumpver update --patch
 

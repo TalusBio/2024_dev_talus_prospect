@@ -1,0 +1,6 @@
+dropout: 0.1
+hidden_size: 64
+mlp_hidden_size: 124
+mlp_output_size: 4
+num_attention_heads: 2
+num_layers: 4

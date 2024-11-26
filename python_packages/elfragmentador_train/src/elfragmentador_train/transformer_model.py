@@ -102,7 +102,8 @@ class TransformerModel(nn.Module):  # noqa: D101
         self.config = config
         self.embeddings = AAEmbedder(config.hidden_size)
         self.position_embeddings = PositionalEncoding(config.hidden_size)
-        self.charge_encoder = nn.Linear(1, config.hidden_size)
+        self.charge_ce_encoder = nn.Linear(2, config.hidden_size)
+        self.charge_ce_norm = nn.BatchNorm1d(2)
 
         encoder_layer = TransformerEncoderLayer(
             d_model=config.hidden_size,
@@ -214,12 +215,14 @@ class TransformerModel(nn.Module):  # noqa: D101
         self,
         input_ids_ns: torch.Tensor,
         position_ids_ns: torch.Tensor,
-        charge_n1: torch.Tensor,
+        charge_ce_n2: torch.Tensor,
         src_key_padding_mask_ns: torch.Tensor,
     ):
         inputs_embeds_nse = self.embeddings(input_ids_ns)
         position_embeds_nse = self.position_embeddings(position_ids_ns)
-        charge_embeds_ne = F.relu(self.charge_encoder(charge_n1))
+        charge_embeds_ne = F.relu(
+            self.charge_ce_encoder(self.charge_ce_norm(charge_ce_n2))
+        )
         charge_embeds_nse = torch.einsum(
             "...se, ...e -> ...se",
             torch.ones_like(inputs_embeds_nse),
@@ -253,7 +256,7 @@ def _test_inputs(extra_seq_len: int = 0) -> dict[str, torch.Tensor]:
     return {
         "input_ids_ns": input_ids_ns,
         "position_ids_ns": position_ids_ns,
-        "charge_n1": torch.tensor([[2.0]], dtype=torch.float, device="cpu"),
+        "charge_ce_n2": torch.tensor([[2.0, 27.0]], dtype=torch.float, device="cpu"),
         "src_key_padding_mask_ns": make_src_key_padding_mask_torch(
             input_ids_ns,
             pad_token_id=ord(" "),

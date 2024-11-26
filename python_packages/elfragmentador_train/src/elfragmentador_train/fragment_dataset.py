@@ -1,4 +1,3 @@
-import enum
 from dataclasses import dataclass, field
 from typing import Self
 
@@ -7,17 +6,12 @@ import polars as pl
 import torch
 from elfragmentador_core.config import IntensityTensorConfig
 from elfragmentador_core.converter import SequenceTensorConverter
+from elfragmentador_core.nce import nce_to_ev
 from torch.utils.data import DataLoader, Dataset
 from tqdm.auto import tqdm
 
-from .data_utils import MOD_STRIP_REGEX, ef_batch_collate_fn
+from .data_utils import MOD_STRIP_REGEX, ef_batch_collate_fn, DatasetSplit
 from .utils_extra import simple_timer
-
-
-class DatasetSplit(enum.Enum):  # noqa: D101
-    TRAIN = "train"
-    VAL = "val"
-    TEST = "test"
 
 
 FRAGMENT_COLS = [
@@ -42,7 +36,6 @@ FRAGMENT_COLS = [
 PRECURSOR_COLS = [
     # "precursor_intensity",
     # "mz",
-    # "precursor_mz",
     # "retention_time",
     # "indexed_retention_time",
     # "andromeda_score",
@@ -50,7 +43,8 @@ PRECURSOR_COLS = [
     # "base_intensity",
     # "total_intensity",
     # "orig_collision_energy",
-    # "aligned_collision_energy",
+    "precursor_mz",  # Used to calculate the CE
+    "aligned_collision_energy",  # Used to calculate the CE
     # Used for filtering
     "mass_analyzer",
     "fragmentation",
@@ -88,11 +82,13 @@ class TorchSequenceTensorConverter(SequenceTensorConverter):  # noqa: D101
             row["charge"],
             row["intensity"],
         )
-        charge_tensor = np.array([row["precursor_charge"]], dtype=np.float32)
+        charge_ce_tensor = np.array(
+            [row["precursor_charge"], row["ce"]], dtype=np.float32
+        )
         return {
             "seq_tensor": torch.tensor(tokens).long(),
             "pos_tensor": torch.tensor(positions).float(),
-            "charge_tensor": torch.tensor(charge_tensor),
+            "charge_ce_tensor": torch.tensor(charge_ce_tensor),
             "intensity_tensor": torch.tensor(intensity_tensor).float(),
         }
 
@@ -291,6 +287,15 @@ class FragmentationDataset(Dataset):  # noqa: D101
                     how="inner",
                 ).collect(streaming=True)
 
+                ce = nce_to_ev(
+                    joint["aligned_collision_energy"].to_numpy(),
+                    joint["precursor_mz"].to_numpy(),
+                    joint["precursor_charge"].to_numpy(),
+                )
+                joint = joint.with_columns(
+                    ce=pl.Series(ce, dtype=pl.Float32),
+                )
+
             # TODO: reimplement the cache as an LRU cache in
             # SequenceTensorConverter.tokenize_proforma
             # TODO: Check if the intensity tensor can be built faster
@@ -457,4 +462,5 @@ def _testing_row() -> dict:
         "mass_analyzer": "FTMS",
         "fragmentation": "HCD",
         "precursor_charge": 2,
+        "ce": 88.8,
     }

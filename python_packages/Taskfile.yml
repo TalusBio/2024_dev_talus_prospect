@@ -26,6 +26,18 @@ tasks:
     cmds:
       - for x in dist/*.whl ; do aws s3 cp $x s3://terraform-workstations-bucket/jspaezp/wheels/ ; done
     
+  train-publish:
+    dir: '{{.TASKFILE_DIR}}'
+    desc: "Build the train+core packages and Copy all the wheels to the S3 bucket"
+    cmds:
+      - rm -rf dist
+      - task: train:build
+      - task: core:build
+      - mkdir -p dist
+      - cp */dist/*.whl dist/
+      - for x in dist/*.whl ; do aws s3 cp $x s3://terraform-workstations-bucket/jspaezp/wheels/ ; done
+
+    
   fmt:
     dir: '{{.TASKFILE_DIR}}'
     cmds:
