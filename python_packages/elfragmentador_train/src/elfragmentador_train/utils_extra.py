@@ -2,8 +2,23 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import timedelta
 from time import time
+from itertools import islice
 
 from rich.pretty import pprint
+
+
+def batched(iterable, n):
+    """Batch data into lists of length *n*. The last batch may be shorter.
+
+    >>> list(batched('ABCDEFG', 3))
+    [['A', 'B', 'C'], ['D', 'E', 'F'], ['G']]
+    """
+    it = iter(iterable)
+    while True:
+        batch = list(islice(it, n))
+        if not batch:
+            break
+        yield batch
 
 
 @contextmanager

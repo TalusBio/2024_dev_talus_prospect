@@ -5,10 +5,13 @@ from collections import defaultdict
 from dataclasses import asdict
 from pathlib import Path
 
+# Importing comet_ml first bc of the way the logger works...
+import comet_ml  # noqa: F401
 import lightning as L
 import torch
 import torch.nn.functional as F
 from lightning.pytorch.callbacks import ModelCheckpoint, RichModelSummary
+from lightning.pytorch.loggers import CometLogger
 from loguru import logger
 from torch.utils.data import DataLoader
 
@@ -76,17 +79,40 @@ class FragmentationModel(L.LightningModule):  # noqa: D101
         outputs = self.batch_forward(batch, add_counts=True)
         bo = self.batch_to_outputs(batch)
 
-        loss = self.loss_fn(outputs, bo, mask=True, show=batch_idx % 200 == 0)
-        self.log("train_loss", loss, prog_bar=True)
+        loss, loss_mean = self.loss_fn(
+            outputs,
+            bo,
+            mask=True,
+            show=batch_idx % 200 == 0,
+        )
+        if torch.isnan(loss_mean).item():
+            logger.error("Loss is NaN, attempting to remove missing values")
+            miss_mask = torch.isnan(loss)
+            num_miss = torch.sum(miss_mask)
+            num_nonmiss = torch.sum(~miss_mask)
+            logger.error(
+                f"Mask (miss: {num_miss}, nonmiss: {num_nonmiss}): {miss_mask}"
+            )
+            loss = loss[~miss_mask]
+            loss_mean = loss.mean()
+            logger.error(f"Outs: {outputs}")
+            logger.error(f"batch_idx: {batch_idx}")
+            logger.error(f"batch: {batch}")
+            logger.error(f"Loss: {loss}")
+            logger.error(f"Loss mean: {loss_mean}")
+
+        self.log("train_loss", loss_mean, prog_bar=True)
 
         ## Other random stuff ...
         try:
             cur_lr = self.trainer.optimizers[0].param_groups[0]["lr"]
             self.log("lr", cur_lr, prog_bar=True, on_step=True)
         except IndexError:
-            logger.warning("No optimizers found")
+            msg = "No optimizers found, This should"
+            msg += " NEVER happen in training but ok during testing :)"
+            logger.warning(msg)
 
-        return loss
+        return loss_mean
 
     def validation_step(  # noqa: D102
         self,
@@ -96,8 +122,13 @@ class FragmentationModel(L.LightningModule):  # noqa: D101
         outputs = self.batch_forward(batch, add_counts=False)
         bo = self.batch_to_outputs(batch)
 
-        loss = self.loss_fn(outputs, bo, mask=False, show=batch_idx % 200 == 0)
-        self.log("val_loss", loss, prog_bar=True)
+        loss, loss_mean = self.loss_fn(
+            outputs,
+            bo,
+            mask=False,
+            show=batch_idx % 200 == 0,
+        )
+        self.log("val_loss", loss_mean, prog_bar=True)
         return loss
 
     def configure_optimizers(  # noqa: D102
@@ -136,6 +167,15 @@ class FragmentationModel(L.LightningModule):  # noqa: D101
 
     def on_validation_epoch_end(self) -> None:  # noqa: ANN201, D102
         epoch_no = self.trainer.current_epoch
+        log_dir = self.trainer.log_dir
+        if log_dir is None:
+            logger.warning("No log dir set, trying logger save_dir")
+            log_dir = self.logger.save_dir
+
+        if log_dir is None:
+            logger.error("No log dir set, cannot save model")
+            return
+
         out_loc = os.path.join(self.trainer.log_dir, f"model_{epoch_no}.onnx")
         self.model.to_onnx(str(out_loc))
 
@@ -181,8 +221,8 @@ class FragmentationModel(L.LightningModule):  # noqa: D101
             logger.info((predictions[0] * 100)[:15, :].long())
             logger.info((outputs[0] * 100)[:15, :].long())
 
-        loss = F.mse_loss(predictions, outputs)
-        return loss
+        loss = F.mse_loss(predictions, outputs, reduction="none")
+        return loss, loss.mean()
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -200,6 +240,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Partitions to keep",
     )
     parser.add_argument("--batch_size", type=int, default=512, help="Batch size")
+    parser.add_argument("--max_epochs", type=int, default=10, help="Maximum epochs")
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
     parser.add_argument(
         "--weights_from_checkpoint",
@@ -220,7 +261,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def build_trainer() -> L.Trainer:
+def build_trainer(max_epochs: int) -> L.Trainer:
     """Builds the trainer."""
     checkpoint_callback = ModelCheckpoint(
         monitor="val_loss",
@@ -230,13 +271,23 @@ def build_trainer() -> L.Trainer:
         filename="{epoch}-{val_loss:.6f}",
     )
     modelsum = RichModelSummary(max_depth=2)
+    # arguments made to CometLogger are passed on to the comet_ml.Experiment class
+    comet_logger = CometLogger(
+        api_key=os.environ.get("COMET_API_KEY"),
+        project_name="general",
+        workspace="jspaezp",
+        save_dir=os.path.join(os.getcwd(), "lightning_logs"),
+    )
     return L.Trainer(
-        max_epochs=10,
+        max_epochs=max_epochs,
         callbacks=[checkpoint_callback, modelsum],
         max_time={"days": 0, "hours": 24},
+        logger=comet_logger,
         enable_progress_bar=True,
         limit_val_batches=0.5,
         gradient_clip_val=1.0,
+        gradient_clip_algorithm="value",
+        profiler="simple",
     )
 
 
@@ -252,6 +303,7 @@ def main() -> None:
         raise ValueError(
             f"Data directories do not exist: {fragments_dir} or {precursor_dir}",
         )
+    trainer = build_trainer(max_epochs=args.max_epochs)
     factory = FragmentationDatasetFactory(
         fragments_dir,
         precursor_dir,
@@ -268,7 +320,6 @@ def main() -> None:
     )
     model = TransformerModel(model_config)
     lit_model = FragmentationModel(model, factory, args.batch_size, args.lr)
-    trainer = build_trainer()
     if args.weights_from_checkpoint:
         # Load only the model weights
         sd = {

@@ -1,6 +1,6 @@
 [project]
 name = "elfragmentadonnx"
-version = "0.21.9"
+version = "0.21.20"
 description = "A transformer model package for training"
 authors = [{ name = "J. Sebastian Paez", email = "spaez@talus.bio" }]
 requires-python = ">=3.11"

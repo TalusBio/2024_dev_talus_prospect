@@ -103,7 +103,10 @@ class TransformerModel(nn.Module):  # noqa: D101
         self.embeddings = AAEmbedder(config.hidden_size)
         self.position_embeddings = PositionalEncoding(config.hidden_size)
         self.charge_ce_encoder = nn.Linear(2, config.hidden_size)
-        self.charge_ce_norm = nn.BatchNorm1d(2)
+        self.charge_ce_norm = nn.Parameter(
+            torch.Tensor([[0.1, 0.01]]),
+            requires_grad=False,
+        )
 
         encoder_layer = TransformerEncoderLayer(
             d_model=config.hidden_size,
@@ -220,9 +223,11 @@ class TransformerModel(nn.Module):  # noqa: D101
     ):
         inputs_embeds_nse = self.embeddings(input_ids_ns)
         position_embeds_nse = self.position_embeddings(position_ids_ns)
-        charge_embeds_ne = F.relu(
-            self.charge_ce_encoder(self.charge_ce_norm(charge_ce_n2))
+        normed_charge_ce_n2 = torch.einsum(
+            "ne, ne -> ne", charge_ce_n2, self.charge_ce_norm
         )
+        charge_embeds_ne = F.tanh(self.charge_ce_encoder(normed_charge_ce_n2))
+
         charge_embeds_nse = torch.einsum(
             "...se, ...e -> ...se",
             torch.ones_like(inputs_embeds_nse),

@@ -7,7 +7,7 @@ tasks:
       PYTORCH_ENABLE_MPS_FALLBACK: 1
       RUST_BACKTRACE: 1
     cmds:
-      - uv run python -m elfragmentador_train.training --data_dir ../../part_data/ 
+      - uv run --offline python -m elfragmentador_train.training --data_dir ../../part_data/ 
 
   clean:
     dir: '{{.TASKFILE_DIR}}'
@@ -27,7 +27,7 @@ tasks:
       - tests/**/*.py
       - pyproject.toml
     cmds:
-      - uv run --with pytest python -m pytest -xs
+      - uv run --offline --with pytest python -m pytest -xs
 
   build:
     dir: '{{.TASKFILE_DIR}}'
@@ -35,7 +35,7 @@ tasks:
       - test
     cmds:
       - task: clean
-      - uv run --with build python -m build
+      - uv run --offline --with build python -m build
 
 
 

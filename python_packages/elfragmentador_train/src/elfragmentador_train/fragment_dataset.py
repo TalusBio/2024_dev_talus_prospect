@@ -1,5 +1,8 @@
 from dataclasses import dataclass, field
+from hashlib import sha256
 from typing import Self
+from pathlib import Path
+import time
 
 import numpy as np
 import polars as pl
@@ -9,9 +12,10 @@ from elfragmentador_core.converter import SequenceTensorConverter
 from elfragmentador_core.nce import nce_to_ev
 from torch.utils.data import DataLoader, Dataset
 from tqdm.auto import tqdm
+from loguru import logger
 
 from .data_utils import MOD_STRIP_REGEX, ef_batch_collate_fn, DatasetSplit
-from .utils_extra import simple_timer
+from .utils_extra import simple_timer, batched
 
 
 FRAGMENT_COLS = [
@@ -146,6 +150,15 @@ class FragmentationDatasetFactory:  # noqa: D101
     config: IntensityTensorConfig = field(default_factory=IntensityTensorConfig)
     _split_lazy_frames: dict[DatasetSplit, pl.LazyFrame] | None = None
 
+    def __post_init__(self) -> None:
+        hashable = str(self.fragments_path) + str(self.precursors_path)
+        if self.partitions_keep is not None:
+            partitions_copy = [str(x) for x in self.partitions_keep]
+            partitions_copy.sort()
+            hashable += "".join(partitions_copy)
+        self.hash = sha256(hashable.encode()).hexdigest()
+        logger.info(f"Hash: {self.hash}")
+
     @property
     def split_lazy_frames(self) -> dict[DatasetSplit, pl.LazyFrame]:  # noqa: D102
         if self._split_lazy_frames is None:
@@ -169,12 +182,27 @@ class FragmentationDatasetFactory:  # noqa: D101
         split: DatasetSplit,
         progress_bar: bool = False,
     ) -> "FragmentationDataset":
-        return FragmentationDataset.new(
+        cache_path = Path("cache") / self.hash  # / f"{split}"
+        matches = list(cache_path.glob(f"{split}*.parquet"))
+
+        if matches:
+            logger.warning(
+                f"Loading from cache: {cache_path}, "
+                f" delete the dir if you dont want this ({matches})"
+            )
+            time.sleep(2)
+            return FragmentationDataset.load_from_parquet(matches)
+
+        cache_path.mkdir(parents=True, exist_ok=True)
+        tmp = FragmentationDataset.new(
             self.split_lazy_frames[split]["fragments"],
             self.split_lazy_frames[split]["precursors"],
             converter=TorchSequenceTensorConverter(self.config),
             progress_bar=progress_bar,
         )
+        cache_prefix = cache_path / f"{split}"
+        tmp.save_to_parquet(str(cache_prefix))
+        return tmp
 
     def build_scanned_frames(  # noqa: D102
         self,
@@ -321,6 +349,35 @@ class FragmentationDataset(Dataset):  # noqa: D101
                 elems.extend(local_elems)
 
         return cls(elems=elems)
+
+    def save_to_parquet(self, path_prefix: str) -> None:
+        logger.info(f"Saving to parquet: {path_prefix}")
+        for bi, batch in enumerate(
+            batched(tqdm(self.elems, desc="Converting to parquet"), 20_000)
+        ):
+            elems_save = []
+            for elem in batch:
+                tmp = {k: v.cpu().numpy().tolist() for k, v in elem.items()}
+                elems_save.append(tmp)
+
+            curr_path = path_prefix + f"{bi}.parquet"
+            logger.info(f"Saving to parquet chunk {bi}: {curr_path}")
+            pl.DataFrame(elems_save).write_parquet(curr_path)
+
+    @classmethod
+    def load_from_parquet(cls, paths: list[str]) -> "FragmentationDataset":
+        logger.info(f"Loading from parquet: {paths}")
+        elems_use = []
+        for path in tqdm(paths):
+            elems = pl.read_parquet(path)
+            for elem in tqdm(elems.iter_rows(named=True), desc="Converting to torch"):
+                elem_o = {k: torch.Tensor(v) for k, v in elem.items()}
+                elem_o["seq_tensor"] = elem_o["seq_tensor"].long()
+                elem_o["pos_tensor"] = elem_o["pos_tensor"].float()
+                elem_o["charge_ce_tensor"] = elem_o["charge_ce_tensor"].float()
+                elem_o["intensity_tensor"] = elem_o["intensity_tensor"].float()
+                elems_use.append(elem_o)
+        return cls(elems=elems_use)
 
     def __len__(self) -> int:  # noqa: ANN201, D102
         return len(self.elems)

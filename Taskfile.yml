@@ -14,7 +14,7 @@ tasks:
       - python_packages/**/*.py
       - python_packages/**/data/*.onnx
     cmds:
-      - uv run bumpver update --patch
+      - uv run --offline bumpver update --no-fetch --patch
 
   bumpver-minor:
     deps:
@@ -22,7 +22,7 @@ tasks:
     sources:
       - python_packages/**/*.py
     cmds:
-      - uv run bumpver update --minor
+      - uv run --offline bumpver update --minor
 
   build:
     deps:

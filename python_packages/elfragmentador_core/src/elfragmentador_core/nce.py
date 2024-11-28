@@ -11,7 +11,8 @@ Charge/charge factor
 5/0.75
 >5/0.75
 
-So.... if you set the QE to do a NCE of 40 and you hit a 1,000 m/z ion with a charge state of 1
+So.... if you set the QE to do a NCE of 40 and
+you hit a 1,000 m/z ion with a charge state of 1
 (40) x (1,000)/500 x 1 = 80 eV
 """
 

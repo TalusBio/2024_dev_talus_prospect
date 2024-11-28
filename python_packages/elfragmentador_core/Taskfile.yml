@@ -9,7 +9,7 @@ tasks:
       - tests/**/*.py
       - pyproject.toml
     cmds:
-      - uv run python -m pytest -xs
+      - uv run --offline python -m pytest -xs
 
   build:
     dir: '{{.TASKFILE_DIR}}'
@@ -20,4 +20,4 @@ tasks:
       - test
     cmds:
       - rm -rf dist
-      - uv run --with build python -m build
+      - uv run --offline --with build python -m build

@@ -41,12 +41,12 @@ tasks:
   fmt:
     dir: '{{.TASKFILE_DIR}}'
     cmds:
-      - uv run ruff format
+      - uv run --offline ruff format
 
   lint:
     dir: '{{.TASKFILE_DIR}}'
     cmds:
-      - uv run ruff check
+      - uv run --offline ruff check
 
   test:
     desc: "Run the tests for all the python packages"
