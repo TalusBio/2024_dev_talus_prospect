@@ -41,18 +41,20 @@ def random_charged_peptide_builder(
     length_range=(5, 10),
     num_peptides=10,
     charge_range=(2, 3),
+    ce_range=(2, 8),
 ):
     peptides = random_peptide_builder(length_range, num_peptides)
     charged_peptides = []
     for peptide in peptides:
         charge = random.randint(*charge_range)
-        charged_peptides.append((peptide, charge))
+        ce = float(random.randint(*ce_range))
+        charged_peptides.append((peptide, charge, ce))
     return charged_peptides
 
 
 def test_smoke():
     model = OnnxPeptideTransformer.default_model()
-    outs = model.predict("MYPEPTIDEK", 2)
+    outs = model.predict("MYPEPTIDEK", 2, 32.0)
 
     assert outs.shape == (30, 4)
 

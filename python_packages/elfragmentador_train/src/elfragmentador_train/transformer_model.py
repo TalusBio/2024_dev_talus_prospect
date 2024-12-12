@@ -102,7 +102,8 @@ class TransformerModel(nn.Module):  # noqa: D101
         self.config = config
         self.embeddings = AAEmbedder(config.hidden_size)
         self.position_embeddings = PositionalEncoding(config.hidden_size)
-        self.charge_ce_encoder = nn.Linear(2, config.hidden_size)
+        self.charge_encoder = nn.Linear(1, config.hidden_size)
+        self.ce_encoder = nn.Linear(1, config.hidden_size)
         self.charge_ce_norm = nn.Parameter(
             torch.Tensor([[0.1, 0.01]]),
             requires_grad=False,
@@ -226,15 +227,16 @@ class TransformerModel(nn.Module):  # noqa: D101
         normed_charge_ce_n2 = torch.einsum(
             "ne, ne -> ne", charge_ce_n2, self.charge_ce_norm
         )
-        charge_embeds_ne = F.tanh(self.charge_ce_encoder(normed_charge_ce_n2))
 
-        charge_embeds_nse = torch.einsum(
-            "...se, ...e -> ...se",
-            torch.ones_like(inputs_embeds_nse),
-            charge_embeds_ne,
-        )
+        norm_charge_n1 = normed_charge_ce_n2[..., 0:1]
+        norm_ce_n1 = normed_charge_ce_n2[..., 1:2]
+        ce_embeds_ne = self.ce_encoder(norm_ce_n1)
+        charge_embeds_ne = self.charge_encoder(norm_charge_n1)
 
-        hidden_states_nse = inputs_embeds_nse + position_embeds_nse + charge_embeds_nse
+        # Adding the ce and charge to the start token.
+        inputs_embeds_nse[:, 0, :] = ce_embeds_ne + charge_embeds_ne
+
+        hidden_states_nse = inputs_embeds_nse + position_embeds_nse
         hidden_states_nse = self.layernorm(hidden_states_nse)
         hidden_states_nse = self.dropout(hidden_states_nse)
 

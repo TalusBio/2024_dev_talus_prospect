@@ -380,7 +380,7 @@ wheels = [
 
 [[package]]
 name = "elfragmentadonnx"
-version = "0.21.20"
+version = "0.22.0"
 source = { editable = "python_packages/elfragmentadonnx" }
 dependencies = [
     { name = "elfragmentador-core" },
@@ -405,7 +405,7 @@ requires-dist = [
 
 [[package]]
 name = "elfragmentador-core"
-version = "0.21.20"
+version = "0.22.0"
 source = { editable = "python_packages/elfragmentador_core" }
 dependencies = [
     { name = "numpy" },
@@ -422,7 +422,7 @@ requires-dist = [
 
 [[package]]
 name = "elfragmentador-train"
-version = "0.21.20"
+version = "0.22.0"
 source = { editable = "python_packages/elfragmentador_train" }
 dependencies = [
     { name = "comet-ml" },
@@ -457,7 +457,7 @@ requires-dist = [
 
 [[package]]
 name = "elfragmentarust"
-version = "0.21.20"
+version = "0.22.0"
 source = { virtual = "." }
 dependencies = [
     { name = "bumpver" },

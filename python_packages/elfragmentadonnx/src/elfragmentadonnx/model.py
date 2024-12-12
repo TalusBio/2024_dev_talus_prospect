@@ -23,22 +23,20 @@ def batched(iterable, n, *, strict=False):
 class OnnxSequenceTensorConverter(SequenceTensorConverter):
     max_length: int = 30
 
-    def convert(self, modified_sequence, charge):
-        return self.convert_with_peptide(modified_sequence, charge)[0]
+    def convert(self, modified_sequence: str, charge: int, ce: float):
+        return self.convert_with_peptide(modified_sequence, charge, ce)[0]
 
     def _convert_linear_peptide(
-        self,
-        peptide: rustyms.LinearPeptide,
-        charge: int,
+        self, peptide: rustyms.LinearPeptide, charge: int, ce: float
     ) -> dict[str, np.array]:
         tokens, positions = self.tokenize_linear_peptide(
             peptide,
             padded_length=self.max_length,
         )
-        charge_tensor = np.array([charge], dtype=np.float32)
+        charge_tensor = np.array([charge, ce], dtype=np.float32)
         padding_mask = make_src_key_padding_mask(tokens, pad_token_id=ord(" "))
 
-        assert charge_tensor.shape == (1,)
+        assert charge_tensor.shape == (2,)
         assert padding_mask.shape == (self.max_length,)
         assert tokens.shape == (self.max_length,)
         assert positions.shape == (self.max_length,)
@@ -46,7 +44,7 @@ class OnnxSequenceTensorConverter(SequenceTensorConverter):
         return {
             "input_ids_s": tokens,
             "position_ids_s": positions,
-            "charge_1": charge_tensor,
+            "charge_ce_2": charge_tensor,
             "src_key_padding_mask_s": padding_mask,
         }
 
@@ -54,16 +52,17 @@ class OnnxSequenceTensorConverter(SequenceTensorConverter):
         self,
         modified_sequence: str,
         charge: int,
+        ce: float,
     ) -> tuple[dict[str, np.array], rustyms.LinearPeptide]:
         peptide = rustyms.LinearPeptide(modified_sequence + f"/{charge}")
-        outs = self._convert_linear_peptide(peptide, charge=charge)
+        outs = self._convert_linear_peptide(peptide, charge=charge, ce=ce)
         return outs, peptide
 
 
 def collate_inputs(batch: list[dict[str, np.array]]) -> dict[str, np.array]:
     out_input_ids = np.stack([t["input_ids_s"] for t in batch], axis=0)
     out_position_ids = np.stack([t["position_ids_s"] for t in batch], axis=0)
-    out_charge = np.stack([t["charge_1"] for t in batch], axis=0)
+    out_charge = np.stack([t["charge_ce_2"] for t in batch], axis=0)
     out_src_key_padding_mask = np.stack(
         [t["src_key_padding_mask_s"] for t in batch],
         axis=0,
@@ -89,8 +88,8 @@ class OnnxPeptideTransformer:
     def default_model(cls) -> "OnnxPeptideTransformer":
         return cls(Path(__file__).parent / "data" / "model.onnx")
 
-    def predict(self, modified_sequence: str, charge: int) -> np.array:
-        input_tensors = self.converter.convert(modified_sequence, charge)
+    def predict(self, modified_sequence: str, charge: int, ce: float) -> np.array:
+        input_tensors = self.converter.convert(modified_sequence, charge, ce)
         ins = collate_inputs([input_tensors] * 9)
 
         if self.session is None:
@@ -101,7 +100,7 @@ class OnnxPeptideTransformer:
 
     def predict_batched(
         self,
-        inputs: Iterator[tuple[str, int]],
+        inputs: Iterator[tuple[str, int, float]],
     ) -> Generator[np.array, None, None]:
         if self.session is None:
             self.session = InferenceSession(self.model_path)
@@ -115,7 +114,9 @@ class OnnxPeptideTransformer:
                 batch = list(batch)
                 batch.extend([batch[-1]] * (9 - len(batch)))
 
-            inputs = collate_inputs([self.converter.convert(x, y) for x, y in batch])
+            inputs = collate_inputs(
+                [self.converter.convert(x, y, z) for x, y, z in batch]
+            )
 
             outs = self.session.run(None, inputs)[0]
 
@@ -126,7 +127,7 @@ class OnnxPeptideTransformer:
 
     def predict_batched_annotated(
         self,
-        inputs: Iterator[tuple[str, int]],
+        inputs: Iterator[tuple[str, int, float]],
         min_intensity: float = 0.001,
         min_ordinal: int = 0,
         max_ordinal: int = 1000,
@@ -144,7 +145,7 @@ class OnnxPeptideTransformer:
                 batch.extend([batch[-1]] * (9 - len(batch)))
 
             converted_withpeps = [
-                self.converter.convert_with_peptide(x, y) for x, y in batch
+                self.converter.convert_with_peptide(x, y, z) for x, y, z in batch
             ]
             peptides = [x[1] for x in converted_withpeps]
             inputs = collate_inputs([x[0] for x in converted_withpeps])

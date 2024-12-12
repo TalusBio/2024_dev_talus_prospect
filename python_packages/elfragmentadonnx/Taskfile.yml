@@ -29,14 +29,14 @@ tasks:
   get-model:
     dir: '{{.TASKFILE_DIR}}'
     vars:
-      MODEL_LOCATION: s3://terraform-workstations-bucket/jspaezp/weights/ef_0.21.5/version_5/
+      MODEL_LOCATION: s3://terraform-workstations-bucket/jspaezp/weights/ef_0.21.24/version_1_tuned/
       MODEL_FILE: model_9.onnx
       MODEL_DATA: model_9.onnx.data
-      MODEL_HPARAMS: hparams.yaml
+      # MODEL_HPARAMS: hparams.yaml
       MODEL_TOKENS: token_counts_9.json
     cmds:
        - rm -rf src/elfragmentadonnx/data/*
        - aws s3 cp {{ .MODEL_LOCATION }}{{ .MODEL_FILE }} src/elfragmentadonnx/data/model.onnx
        - aws s3 cp {{ .MODEL_LOCATION }}{{ .MODEL_DATA }} src/elfragmentadonnx/data/{{ .MODEL_DATA }}
-       - aws s3 cp {{ .MODEL_LOCATION }}{{ .MODEL_HPARAMS }} src/elfragmentadonnx/data/hparams.yaml
+       # - aws s3 cp {{ .MODEL_LOCATION }}{{ .MODEL_HPARAMS }} src/elfragmentadonnx/data/hparams.yaml
        - aws s3 cp {{ .MODEL_LOCATION }}{{ .MODEL_TOKENS }} src/elfragmentadonnx/data/token_counts.json

@@ -46,9 +46,11 @@ PRECURSOR_COLS = [
     # "peptide_length",
     # "base_intensity",
     # "total_intensity",
-    # "orig_collision_energy",
     "precursor_mz",  # Used to calculate the CE
-    "aligned_collision_energy",  # Used to calculate the CE
+    # "aligned_collision_energy",  # Used to calculate the CE
+    # Used to calculate the CE ... SHOULD use the aligned but TMT_TUM_mod_ubi
+    # has nan values ...
+    "orig_collision_energy",
     # Used for filtering
     "mass_analyzer",
     "fragmentation",
@@ -315,14 +317,26 @@ class FragmentationDataset(Dataset):  # noqa: D101
                     how="inner",
                 ).collect(streaming=True)
 
+                # The TMT_TUM_mod_ubi partition has no aligned energies ...
                 ce = nce_to_ev(
-                    joint["aligned_collision_energy"].to_numpy(),
+                    joint["orig_collision_energy"].to_numpy(),
                     joint["precursor_mz"].to_numpy(),
                     joint["precursor_charge"].to_numpy(),
                 )
+
                 joint = joint.with_columns(
                     ce=pl.Series(ce, dtype=pl.Float32),
                 )
+
+                missing_ce = joint.filter(
+                    pl.col("ce").is_null() | pl.col("ce").is_nan()
+                )
+                if not missing_ce.is_empty():
+                    # TMT_TUM_mod_ubi has no aligned collision energies
+                    # So this is needed to make sure I dont accidentally
+                    # add that partition ...
+                    logger.warning(f"Missing CE: {missing_ce}")
+                    raise RuntimeError("Missing CE")
 
             # TODO: reimplement the cache as an LRU cache in
             # SequenceTensorConverter.tokenize_proforma
@@ -353,7 +367,7 @@ class FragmentationDataset(Dataset):  # noqa: D101
     def save_to_parquet(self, path_prefix: str) -> None:
         logger.info(f"Saving to parquet: {path_prefix}")
         for bi, batch in enumerate(
-            batched(tqdm(self.elems, desc="Converting to parquet"), 20_000)
+            batched(tqdm(self.elems, desc="Converting to parquet"), 200_000)
         ):
             elems_save = []
             for elem in batch:
@@ -370,7 +384,7 @@ class FragmentationDataset(Dataset):  # noqa: D101
         elems_use = []
         for path in tqdm(paths):
             elems = pl.read_parquet(path)
-            for elem in tqdm(elems.iter_rows(named=True), desc="Converting to torch"):
+            for elem in elems.iter_rows(named=True):
                 elem_o = {k: torch.Tensor(v) for k, v in elem.items()}
                 elem_o["seq_tensor"] = elem_o["seq_tensor"].long()
                 elem_o["pos_tensor"] = elem_o["pos_tensor"].float()

@@ -241,7 +241,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--batch_size", type=int, default=512, help="Batch size")
     parser.add_argument("--max_epochs", type=int, default=10, help="Maximum epochs")
-    parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
+    parser.add_argument("--lr", type=float, default=5e-4, help="Learning rate")
     parser.add_argument(
         "--weights_from_checkpoint",
         type=str,
