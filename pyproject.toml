@@ -40,7 +40,12 @@ find-links = ["https://download.pytorch.org/whl/torch_stable.html"]
 
 [tool.bumpver]
 current_version = "0.22.0"
-version_pattern = "MAJOR.MINOR.PATCH"
+version_pattern = "MAJOR.MINOR.PATCH[-PYTAGNUM]"
+tag_message = "v{new_version}"
+commit_message = "chore: bump version to {new_version}"
+commit = true
+tag = true
+push = true
 
 [tool.bumpver.file_patterns]
 "python_packages/**/pyproject.toml" = ['version = "{version}"$']
@@ -52,7 +57,7 @@ line-length = 88
 [tool.ruff.lint]
 select = ["E", "F"]
 # select = ["E", "F", "B","W", "C", "I", "D", "UP", "N", "ANN", "T20", "COM"]
-ignore = ["D401", "D100", "N812", "COM812", "ANN101", "D105", "ANN102"]
+ignore = ["D401", "D100", "N812", "COM812", "D105"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"

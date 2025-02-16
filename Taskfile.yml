@@ -13,16 +13,20 @@ tasks:
     sources:
       - python_packages/**/*.py
       - python_packages/**/data/*.onnx
+      - python_packages/**/pyproject.toml
+      - pyproject.toml
     cmds:
-      - uv run --offline bumpver update --no-fetch --patch
+      - uv run --offline bumpver update --no-fetch --patch {{ .CLI_ARGS }}
 
   bumpver-minor:
     deps:
       - bumpver-patch
     sources:
       - python_packages/**/*.py
+      - python_packages/**/pyproject.toml
+      - pyproject.toml
     cmds:
-      - uv run --offline bumpver update --minor
+      - uv run bumpver update --minor {{ .CLI_ARGS }}
 
   build:
     deps:
