@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "elfragmentador_train"
-version = "0.22.0"
+version = "0.22.1"
 description = "A transformer model package for training"
 authors = [{ name = "J. Sebastian Paez", email = "spaez@talus.bio" }]
 requires-python = ">=3.11"

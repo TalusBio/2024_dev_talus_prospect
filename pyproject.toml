@@ -3,7 +3,7 @@
 
 [project]
 name = "elfragmentarust"
-version = "0.22.0"
+version = "0.22.1"
 requires-python = ">=3.11, <3.13"
 dependencies = [
     "elfragmentador_train",
@@ -39,7 +39,7 @@ preview = true
 find-links = ["https://download.pytorch.org/whl/torch_stable.html"]
 
 [tool.bumpver]
-current_version = "0.22.0"
+current_version = "0.22.1"
 version_pattern = "MAJOR.MINOR.PATCH[-PYTAGNUM]"
 tag_message = "v{new_version}"
 commit_message = "chore: bump version to {new_version}"
