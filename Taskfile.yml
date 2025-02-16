@@ -13,8 +13,8 @@ tasks:
     sources:
       - python_packages/**/*.py
       - python_packages/**/data/*.onnx
-      - python_packages/**/pyproject.toml
-      - pyproject.toml
+      # - python_packages/**/pyproject.toml
+      # - pyproject.toml
     cmds:
       - uv run --offline bumpver update --no-fetch --patch {{ .CLI_ARGS }}
 
@@ -23,8 +23,11 @@ tasks:
       - bumpver-patch
     sources:
       - python_packages/**/*.py
-      - python_packages/**/pyproject.toml
-      - pyproject.toml
+      # I cannot use the pyproject as a source bc...
+      # since this command changes the pyproject.toml
+      # It creates a "never up to date loop"
+      # - python_packages/**/pyproject.toml
+      # - pyproject.toml
     cmds:
       - uv run bumpver update --minor {{ .CLI_ARGS }}
 
@@ -39,6 +42,21 @@ tasks:
       - build
     cmds:
       - task: py:publish
+
+  gh-release:
+    desc: Create a new GitHub release with built wheels
+    deps:
+      - build
+    cmds:
+      - |
+        VERSION=$(uv run bumpver show | grep "Current Version:" | cut -d ":" -f2 | tr -d ' ')
+        if [ -z "$VERSION" ]; then
+          echo "Failed to get version from bumpver"
+          exit 1
+        fi
+        echo "Creating release for version: $VERSION"
+        echo gh release create "v$VERSION" ./python/dist/*.whl --title "v$VERSION" --notes "Release $VERSION"
+    silent: false
 
   fmt:
     cmds:
