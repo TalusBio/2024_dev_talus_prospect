@@ -17,6 +17,7 @@ tasks:
       # - pyproject.toml
     cmds:
       - uv run --offline bumpver update --no-fetch --patch {{ .CLI_ARGS }}
+      - uv sync
 
   bumpver-minor:
     deps:
@@ -30,6 +31,7 @@ tasks:
       # - pyproject.toml
     cmds:
       - uv run bumpver update --minor {{ .CLI_ARGS }}
+      - uv sync
 
   build:
     deps:
@@ -54,8 +56,8 @@ tasks:
           echo "Failed to get version from bumpver"
           exit 1
         fi
-        echo "Creating release for version: $VERSION"
-        echo gh release create "v$VERSION" ./python/dist/*.whl --title "v$VERSION" --notes "Release $VERSION"
+        echo "Creating release for version: ${VERSION}"
+        gh release create "v${VERSION}" ./python_packages/dist/*.whl --title "v${VERSION}" --notes "Release ${VERSION}"
     silent: false
 
   fmt:
