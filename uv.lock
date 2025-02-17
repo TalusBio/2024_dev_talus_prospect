@@ -395,12 +395,12 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "elfragmentador-core", editable = "python_packages/elfragmentador_core" },
-    { name = "numpy", specifier = ">=2.0" },
-    { name = "onnx", specifier = ">=1.17.0" },
-    { name = "onnxruntime", specifier = ">=1.16.0" },
+    { name = "numpy", specifier = ">=2.0,<3.0" },
+    { name = "onnx", specifier = ">=1.17.0,<2.0.0" },
+    { name = "onnxruntime", specifier = ">=1.16.0,<2.0.0" },
     { name = "onnxscript", specifier = ">=0.1.0.dev20241112" },
     { name = "rich", specifier = ">=13.9.4" },
-    { name = "rustyms", specifier = ">=0.8.3" },
+    { name = "rustyms", specifier = ">=0.8.3,<0.9.0" },
 ]
 
 [[package]]
@@ -415,9 +415,9 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "numpy", specifier = ">=2.0" },
-    { name = "requests", specifier = ">=2.32.3" },
-    { name = "rustyms", specifier = ">=0.8.3" },
+    { name = "numpy", specifier = ">=2.0,<3.0" },
+    { name = "requests", specifier = ">=2.32.3,<3.0" },
+    { name = "rustyms", specifier = ">=0.8.3,<0.9.0" },
 ]
 
 [[package]]
@@ -441,17 +441,17 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "comet-ml", specifier = ">=3.47.2" },
+    { name = "comet-ml", specifier = ">=3.47.2,<4.0" },
     { name = "elfragmentador-core", editable = "python_packages/elfragmentador_core" },
-    { name = "lightning", specifier = ">=2.4.0" },
+    { name = "lightning", specifier = ">=2.4.0,<3.0" },
     { name = "loguru" },
-    { name = "numpy", specifier = ">=2.0" },
-    { name = "onnx", specifier = ">=1.17.0" },
-    { name = "onnxruntime", specifier = ">=1.16.0" },
+    { name = "numpy", specifier = ">=2.0,<3.0" },
+    { name = "onnx", specifier = ">=1.17.0,<2.0" },
+    { name = "onnxruntime", specifier = ">=1.16.0,<2.0" },
     { name = "onnxscript", specifier = ">=0.1.0.dev20241112" },
-    { name = "polars", specifier = ">=1.12.0" },
+    { name = "polars", specifier = ">=1.12.0,<2.0" },
     { name = "rich", specifier = ">=13.9.4" },
-    { name = "rustyms", specifier = ">=0.8.3" },
+    { name = "rustyms", specifier = ">=0.8.3,<0.9.0" },
     { name = "torch", specifier = ">=2.5.1" },
 ]
 
