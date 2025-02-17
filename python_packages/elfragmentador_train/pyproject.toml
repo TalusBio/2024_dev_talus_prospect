@@ -11,15 +11,15 @@ authors = [{ name = "J. Sebastian Paez", email = "spaez@talus.bio" }]
 requires-python = ">=3.11"
 dependencies = [
   "torch>=2.5.1",
-  "onnx>=1.17.0",
-  "onnxruntime>=1.16.0",
-  "numpy>=2.0",
+  "onnx>=1.17.0, < 2.0",
+  "onnxruntime>=1.16.0, < 2.0",
+  "numpy>=2.0, < 3.0",
   "onnxscript>=0.1.0.dev20241112",
-  "polars>=1.12.0",
-  "rustyms>=0.8.3",
-  "lightning>=2.4.0",
+  "polars>=1.12.0, < 2.0",
+  "rustyms>=0.8.3, < 0.9.0",
+  "lightning>=2.4.0, < 3.0",
   "rich>=13.9.4",
-  "comet-ml>=3.47.2",
+  "comet-ml>=3.47.2, < 4.0",
   "elfragmentador_core",
   "loguru",
 ]
@@ -35,4 +35,3 @@ elfragmentador_core = { workspace = true }
 preview = true
 find-links = ["https://download.pytorch.org/whl/torch_stable.html"]
 
-# extras = ["dev"]

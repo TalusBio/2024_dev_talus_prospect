@@ -5,11 +5,11 @@ description = "A transformer model package for training"
 authors = [{ name = "J. Sebastian Paez", email = "spaez@talus.bio" }]
 requires-python = ">=3.11"
 dependencies = [
-  "onnx>=1.17.0",
-  "onnxruntime>=1.16.0",
-  "numpy>=2.0",
+  "onnx>=1.17.0, < 2.0.0",
+  "onnxruntime>=1.16.0, < 2.0.0",
+  "numpy>=2.0, < 3.0",
   "onnxscript>=0.1.0.dev20241112",
-  "rustyms>=0.8.3",
+  "rustyms>=0.8.3, < 0.9.0",
   "rich>=13.9.4",
   "elfragmentador_core",
 ]
